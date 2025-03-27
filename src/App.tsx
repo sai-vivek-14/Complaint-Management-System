@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'; // For programmatic navigation
 function App() {
   const [rollNumber, setRollNumber] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);// for storing user's choice
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
