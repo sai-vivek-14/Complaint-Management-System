@@ -11,7 +11,8 @@ router.register(r'complaints', views.ComplaintViewSet)  # Register the Complaint
 # Define the URL patterns
 urlpatterns = [
     path('', include(router.urls)),  # Include the router's URLs
-    path('categories/', views.get_complaint_categories, name='complaint-categories'),  # Custom endpoint for categories
+    path('categories/', views.get_complaint_categories, name='complaint-categories'),
+      # Custom endpoint for categories
 ]
 
 # Serve media files during development

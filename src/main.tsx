@@ -10,12 +10,14 @@ import SProfile from './SProfile.tsx';
 import WProfile from './WProfile.tsx';
 import Wmain from './Wmain.tsx';
 import PDash from './PDash';
+import PasswordResetPage from './PasswordresetPage.tsx'; // Import the password reset page
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Router>
       <Routes>
         <Route path="/" element={<App />} /> {/* Route for the home page */}
+        <Route path="/passwordreset" element={<PasswordResetPage />} /> {/* Route for the password reset page */}
         <Route path="/hostel" element={<Hostel />} /> {/* Route for the hostel page */}
         <Route path='/hdash' element={<HDash />} /> {/* Route for the hdash page */}
         <Route path='SDash' element={<SDash />} /> {/* Route for the sdash page */}

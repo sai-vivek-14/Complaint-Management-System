@@ -1,25 +1,27 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom'; // For programmatic navigation
+import { useNavigate } from 'react-router-dom';
 
-function App() {
-  const [rollNumber, setRollNumber] = useState('');
+function LoginPage() {
+  const [loginType, setLoginType] = useState('student');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);// for storing user's choice
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
 
     try {
       const response = await axios.post(
-        'http://localhost:8000/api/auth/login/',
+        'http://localhost:8000/accounts/api/auth/login/',
         { 
-          username: rollNumber, 
+          login_type: loginType,
+          identifier,
           password 
         },
         {
@@ -29,30 +31,48 @@ function App() {
         }
       );
       
-      // Store tokens based on rememberMe choice
+      // Store tokens and user data
       const storage = rememberMe ? localStorage : sessionStorage;
       storage.setItem('access_token', response.data.access);
       storage.setItem('refresh_token', response.data.refresh);
+      storage.setItem('user_type', response.data.user_type);
+      storage.setItem('user_name', `${response.data.first_name} ${response.data.last_name}`);
       
-      // Set default authorization header for future requests
       axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.access}`;
       
-      // Redirect to dashboard
-      navigate('/dashboard');
+      // Redirect based on user type
+      switch(response.data.user_type) {
+        case 'student':
+          navigate('/student-dashboard');
+          break;
+        case 'warden':
+          navigate('/warden-dashboard');
+          break;
+        case 'hostel_staff':
+          navigate('/hostel-staff-dashboard');
+          break;
+        case 'worker':
+          navigate('/worker-dashboard');
+          break;
+        default:
+          navigate('/dashboard');
+      }
       
-    } catch (err: any) {
+    } catch (err) {
       setError(
         err.response?.data?.detail || 
-        'Invalid roll number or password. Format: YYYYgroupXXXX (e.g., 2023bcy1234)'
+        (loginType === 'student' 
+          ? 'Invalid roll number or password. Format: YYYYgroupXXXX (e.g., 2023bcy1234)'
+          : 'Invalid email or password. Use your @iiitkottayam.ac.in email')
       );
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleForgotPassword = (e: React.MouseEvent) => {
+  const handleForgotPassword = (e) => {
     e.preventDefault();
-    window.location.href = 'http://localhost:8000/password_reset/';
+    navigate('/Passwordreset');
   };
 
   return (
@@ -74,6 +94,34 @@ function App() {
       {/* Login Form */}
       <div className="flex w-full h-full items-center justify-center">
         <div className="bg-gray-800 p-8 rounded-xl shadow-xl w-full max-w-md">
+          {/* Login Type Toggle */}
+          <div className="flex justify-center mb-6">
+            <div className="inline-flex rounded-md shadow-sm">
+              <button
+                type="button"
+                onClick={() => setLoginType('student')}
+                className={`px-4 py-2 text-sm font-medium rounded-l-lg ${
+                  loginType === 'student' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-700 text-gray-300'
+                }`}
+              >
+                Student
+              </button>
+              <button
+                type="button"
+                onClick={() => setLoginType('staff')}
+                className={`px-4 py-2 text-sm font-medium rounded-r-lg ${
+                  loginType !== 'student' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-700 text-gray-300'
+                }`}
+              >
+                Staff
+              </button>
+            </div>
+          </div>
+
           {error && (
             <div className="mb-4 p-3 bg-red-900 text-red-100 rounded-lg">
               {error}
@@ -83,16 +131,23 @@ function App() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="text-gray-300 text-sm font-medium mb-2 block">
-                Roll Number
+                {loginType === 'student' ? 'Roll Number' : 'Institute Email'}
               </label>
               <input
-                type="text"
-                value={rollNumber}
-                onChange={(e) => setRollNumber(e.target.value)}
+                type={loginType === 'student' ? 'text' : 'email'}
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 className="w-full px-4 py-3 bg-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-300/50 border border-gray-600"
-                placeholder="YYYYgroupXXXX (e.g., 2023bcy0001)"
-                pattern="(2021|2022|2023|2024)(bcs|bcd|bcy|bec)\d{4}"
-                title="Format: YYYYgroupXXXX (e.g., 2024bcs1234)"
+                placeholder={
+                  loginType === 'student' 
+                    ? 'YYYYgroupXXXX (e.g., 2024bcs1234)' 
+                    : 'user@iiitkottayam.ac.in'
+                }
+                pattern={
+                  loginType === 'student' 
+                    ? '(2021|2022|2023|2024)(bcs|bcd|bcy|bec)\\d{4}' 
+                    : '.+@iiitkottayam\\.ac\\.in'
+                }
                 required
               />
             </div>
@@ -148,4 +203,4 @@ function App() {
   );
 }
 
-export default App;
+export default LoginPage;
