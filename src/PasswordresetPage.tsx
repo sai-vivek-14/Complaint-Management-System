@@ -3,7 +3,8 @@ import axios from 'axios';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 const PasswordResetPage: React.FC = () => {
-  const [email, setEmail] = useState<string>('');
+  const [identifier, setIdentifier] = useState<string>('');
+  const [identifierType, setIdentifierType] = useState<'email' | 'roll'>('email');
   const [newPassword, setNewPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [error, setError] = useState<string>('');
@@ -24,16 +25,16 @@ const PasswordResetPage: React.FC = () => {
     try {
       await axios.post(
         'http://localhost:8000/accounts/api/auth/password_reset/',
-        { email },
+        { identifier },
         {
           headers: {
             'Content-Type': 'application/json',
           },
         }
       );
-      setSuccess('Password reset email sent. Please check your inbox.');
+      setSuccess('Password reset email sent. Please check your institute email inbox.');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to send reset email');
+      setError(err.response?.data?.identifier || err.response?.data?.detail || 'Failed to send reset email');
     } finally {
       setIsLoading(false);
     }
@@ -138,30 +139,80 @@ const PasswordResetPage: React.FC = () => {
               </button>
             </form>
           ) : (
-            <form onSubmit={handleResetRequest} className="space-y-6">
-              <div>
-                <label className="text-gray-300 text-sm font-medium mb-2 block">Email Address</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-300/50 border border-gray-600"
-                  placeholder="user@iiitkottayam.ac.in"
-                  pattern=".+@iiitkottayam\.ac\.in"
-                  required
-                />
+            <>
+              {/* Toggle between email and roll number */}
+              <div className="flex justify-center mb-6">
+                <div className="inline-flex rounded-md shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => setIdentifierType('email')}
+                    className={`px-4 py-2 text-sm font-medium rounded-l-lg ${
+                      identifierType === 'email' 
+                        ? 'bg-orange-600 text-white' 
+                        : 'bg-gray-700 text-gray-300'
+                    }`}
+                  >
+                    Email
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIdentifierType('roll')}
+                    className={`px-4 py-2 text-sm font-medium rounded-r-lg ${
+                      identifierType === 'roll' 
+                        ? 'bg-orange-600 text-white' 
+                        : 'bg-gray-700 text-gray-300'
+                    }`}
+                  >
+                    Roll Number
+                  </button>
+                </div>
               </div>
+            
+              <form onSubmit={handleResetRequest} className="space-y-6">
+                <div>
+                  <label className="text-gray-300 text-sm font-medium mb-2 block">
+                    {identifierType === 'email' ? 'Email Address' : 'Roll Number'}
+                  </label>
+                  <input
+                    type={identifierType === 'email' ? 'email' : 'text'}
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-300/50 border border-gray-600"
+                    placeholder={
+                      identifierType === 'email' 
+                        ? 'user@iiitkottayam.ac.in' 
+                        : 'YYYYgroupXXXX (e.g., 2024bcs1234)'
+                    }
+                    pattern={
+                      identifierType === 'email' 
+                        ? '.+@iiitkottayam\\.ac\\.in' 
+                        : '(2021|2022|2023|2024)(bcs|bcd|bcy|bec)\\d{4}'
+                    }
+                    required
+                  />
+                </div>
 
-              <button
-                type="submit"
-                disabled={isLoading}
-                className={`w-full py-3 rounded-lg font-medium transition-colors ${
-                  isLoading ? 'bg-orange-700 cursor-not-allowed' : 'bg-orange-600 hover:bg-orange-700'
-                } text-white`}
-              >
-                {isLoading ? 'Sending...' : 'Send Reset Link'}
-              </button>
-            </form>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className={`w-full py-3 rounded-lg font-medium transition-colors ${
+                    isLoading ? 'bg-orange-700 cursor-not-allowed' : 'bg-orange-600 hover:bg-orange-700'
+                  } text-white`}
+                >
+                  {isLoading ? 'Sending...' : 'Send Reset Link'}
+                </button>
+                
+                <div className="text-center mt-4">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/login')}
+                    className="text-orange-300 hover:text-orange-200 text-sm"
+                  >
+                    Back to Login
+                  </button>
+                </div>
+              </form>
+            </>
           )}
         </div>
       </div>

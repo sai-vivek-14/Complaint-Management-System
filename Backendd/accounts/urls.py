@@ -1,11 +1,12 @@
+# 1. Update accounts/urls.py
 from django.urls import path
-from .views import LoginAPIView, PasswordResetAPIView, PasswordResetConfirmAPIView
+from .views import LoginAPIView, EnhancedPasswordResetAPIView, PasswordResetConfirmAPIView
 from django.contrib.auth import views as auth_views
 from .forms import CustomPasswordResetForm
 
 urlpatterns = [
     path('api/auth/login/', LoginAPIView.as_view(), name='api-login'),
-    path('api/auth/password_reset/', PasswordResetAPIView.as_view(), name='api-password-reset'),
+    path('api/auth/password_reset/', EnhancedPasswordResetAPIView.as_view(), name='api-password-reset'),
     path('api/auth/password_reset/confirm/', PasswordResetConfirmAPIView.as_view(), name='api-password-reset-confirm'),
     
     # Traditional password reset URLs (optional if you want to keep Django's built-in templates)
@@ -17,3 +18,4 @@ urlpatterns = [
         from_email='hostcomplaints@gmail.com',
     ), name='password_reset'),
 ]
+

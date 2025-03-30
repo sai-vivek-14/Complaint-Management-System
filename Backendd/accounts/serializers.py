@@ -1,92 +1,123 @@
+# 1. Update serializers.py to handle roll number-based reset
 from rest_framework import serializers
-from django.contrib.auth import get_user_model, authenticate
+from django.contrib.auth import get_user_model
 from django.utils.http import urlsafe_base64_decode
 from django.contrib.auth.tokens import default_token_generator
-from django.core.validators import RegexValidator
 
 User = get_user_model()
 
-class LoginSerializer(serializers.Serializer):
-    login_type = serializers.ChoiceField(choices=['student', 'staff'])
-    identifier = serializers.CharField()
-    password = serializers.CharField()
-
-    def validate(self, data):
-        if data['login_type'] == 'student':
-            # Validate roll number format
-            validator = RegexValidator(
-                regex=r'^(2021|2022|2023|2024)(bcs|bcd|bcy|bec)\d{4}$',
-                message="Invalid roll number format"
-            )
-            try:
-                validator(data['identifier'])
-            except:
-                raise serializers.ValidationError({
-                    'identifier': 'Roll number must be in format: YYYYgroupXXXX'
-                })
-            
-            # Try to authenticate using roll_number
-            users = User.objects.filter(roll_number=data['identifier'])
-            if not users.exists():
-                raise serializers.ValidationError("Invalid roll number or password")
-            
-            user = users.first()
-            if not user.check_password(data['password']):
-                raise serializers.ValidationError("Invalid roll number or password")
-                
-            if user.user_type != 'student':
-                raise serializers.ValidationError("Account is not a student account")
-        else:
-            # Staff login with email
-            # Validate email format for staff
-            if not data['identifier'].endswith('@iiitkottayam.ac.in'):
-                raise serializers.ValidationError({
-                    'identifier': 'Email must be a valid @iiitkottayam.ac.in address'
-                })
-                
-            users = User.objects.filter(email=data['identifier'])
-            if not users.exists():
-                raise serializers.ValidationError("Invalid email or password")
-                
-            user = users.first()
-            if not user.check_password(data['password']):
-                raise serializers.ValidationError("Invalid email or password")
-                
-            if user.user_type == 'student':
-                raise serializers.ValidationError("Please use student login for student accounts")
-        
-        if not user.is_active:
-            raise serializers.ValidationError("Account is inactive")
-        
-        data['user'] = user
-        return data
-
 class PasswordResetSerializer(serializers.Serializer):
-    email = serializers.EmailField()
+    """
+    Enhanced password reset serializer that accepts either email or roll number
+    """
+    identifier = serializers.CharField(required=True)
 
-    def validate_email(self, value):
-        if not User.objects.filter(email=value).exists():
-            raise serializers.ValidationError("No user with this email exists")
-        return value
-
-class PasswordResetConfirmSerializer(serializers.Serializer):
-    uid = serializers.CharField()
-    token = serializers.CharField()
-    new_password = serializers.CharField(min_length=8)
-    confirm_password = serializers.CharField(min_length=8)
+    def validate_identifier(self, value):
+        # Check if identifier is an email or roll number
+        if '@' in value:
+            # Email format validation
+            if not value.endswith('@iiitkottayam.ac.in'):
+                raise serializers.ValidationError("Please use your institute email address")
+            
+            # Check if user exists with this email
+            if not User.objects.filter(email=value).exists():
+                raise serializers.ValidationError("No account found with this email address")
+            
+            return {'type': 'email', 'value': value}
+        else:
+            # Roll number format validation
+            import re
+            if not re.match(r'^(2021|2022|2023|2024)(bcs|bcd|bcy|bec)\d{4}$', value):
+                raise serializers.ValidationError("Invalid roll number format")
+            
+            # Check if user exists with this roll number
+            if not User.objects.filter(roll_number=value).exists():
+                raise serializers.ValidationError("No account found with this roll number")
+            
+            # Get the linked email for this roll number
+            user = User.objects.get(roll_number=value)
+            return {'type': 'roll_number', 'value': value, 'email': user.email}
+class LoginSerializer(serializers.Serializer):
+    email_or_roll = serializers.CharField()
+    password = serializers.CharField(write_only=True)
 
     def validate(self, data):
-        if data['new_password'] != data['confirm_password']:
-            raise serializers.ValidationError({"confirm_password": "Passwords don't match"})
+        user = authenticate(username=data['email_or_roll'], password=data['password'])
+        if not user:
+            raise serializers.ValidationError("Invalid login credentials.")
+        return {'user': user}
+
+
+# 2. Update the views.py for enhanced password reset
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.conf import settings
+from django.utils.http import urlsafe_base64_encode
+from django.contrib.auth.tokens import default_token_generator
+from django.template.loader import render_to_string
+from django.core.mail import send_mail
+from django.utils.encoding import force_bytes
+import logging
+
+logger = logging.getLogger(__name__)
+
+class EnhancedPasswordResetAPIView(APIView):
+    """
+    Enhanced password reset that works with both roll number and email
+    """
+    def post(self, request):
+        serializer = PasswordResetSerializer(data=request.data)
         
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        data = serializer.validated_data
+        
+        # Get the user based on identifier type
+        if data['type'] == 'email':
+            user = User.objects.get(email=data['value'])
+        else:  # roll_number
+            user = User.objects.get(roll_number=data['value'])
+            
+        # Generate reset token and uid
+        token = default_token_generator.make_token(user)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        
+        # Build reset link that redirects to React frontend
+        reset_url = f"{settings.FRONTEND_URL}/password-reset/confirm?uid={uid}&token={token}"
+        
+        # Prepare email context
+        context = {
+            'user': user,
+            'reset_url': reset_url,
+            'site_name': 'Insta Solve - IIIT Kottayam',
+            'domain': settings.BACKEND_DOMAIN.replace('http://', '').replace('https://', ''),
+            'protocol': 'https' if request.is_secure() else 'http',
+        }
+        
+        # Create email content
+        subject = 'Password Reset Request - Insta Solve'
+        email_template = 'accounts/password_reset_email.html'
+        html_message = render_to_string(email_template, context)
+        plain_message = strip_tags(html_message)  # Create plain text version
+        
+        # Send email
         try:
-            uid = urlsafe_base64_decode(data['uid']).decode()
-            user = User.objects.get(pk=uid)
-        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
-            raise serializers.ValidationError({"uid": "Invalid user"})
+            send_mail(
+                subject=subject,
+                message=plain_message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                html_message=html_message,
+                fail_silently=False,
+            )
+            logger.info(f"Password reset email sent to {user.email}")
+            return Response({"detail": "Password reset email sent"})
         
-        if not default_token_generator.check_token(user, data['token']):
-            raise serializers.ValidationError({"token": "Invalid or expired token"})
-        
-        data['user'] = user
-        return data
+        except Exception as e:
+            logger.error(f"Failed to send password reset email: {str(e)}")
+            return Response(
+                {"detail": "Failed to send reset email. Please try again later."}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
