@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, authenticate
 from django.utils.http import urlsafe_base64_decode
 from django.contrib.auth.tokens import default_token_generator
 from django.core.validators import RegexValidator
@@ -12,8 +12,6 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField()
 
     def validate(self, data):
-        user = None
-        
         if data['login_type'] == 'student':
             # Validate roll number format
             validator = RegexValidator(
@@ -27,22 +25,35 @@ class LoginSerializer(serializers.Serializer):
                     'identifier': 'Roll number must be in format: YYYYgroupXXXX'
                 })
             
-            user = authenticate(
-                username=data['identifier'],
-                password=data['password']
-            )
-            
-            if not user or user.user_type != 'student':
+            # Try to authenticate using roll_number
+            users = User.objects.filter(roll_number=data['identifier'])
+            if not users.exists():
                 raise serializers.ValidationError("Invalid roll number or password")
+            
+            user = users.first()
+            if not user.check_password(data['password']):
+                raise serializers.ValidationError("Invalid roll number or password")
+                
+            if user.user_type != 'student':
+                raise serializers.ValidationError("Account is not a student account")
         else:
             # Staff login with email
-            user = authenticate(
-                username=data['identifier'],
-                password=data['password']
-            )
-            
-            if not user or user.user_type == 'student':
+            # Validate email format for staff
+            if not data['identifier'].endswith('@iiitkottayam.ac.in'):
+                raise serializers.ValidationError({
+                    'identifier': 'Email must be a valid @iiitkottayam.ac.in address'
+                })
+                
+            users = User.objects.filter(email=data['identifier'])
+            if not users.exists():
                 raise serializers.ValidationError("Invalid email or password")
+                
+            user = users.first()
+            if not user.check_password(data['password']):
+                raise serializers.ValidationError("Invalid email or password")
+                
+            if user.user_type == 'student':
+                raise serializers.ValidationError("Please use student login for student accounts")
         
         if not user.is_active:
             raise serializers.ValidationError("Account is inactive")

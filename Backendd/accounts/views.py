@@ -2,10 +2,10 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth import get_user_model
 from django.shortcuts import redirect
 from django.conf import settings
-from django.utils.http import urlsafe_base64_decode
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.contrib.auth.tokens import default_token_generator
 from .serializers import (
     LoginSerializer,
@@ -28,19 +28,9 @@ class LoginAPIView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         data = serializer.validated_data
-        user = authenticate(
-            request,
-            username=data['identifier'],
-            password=data['password']
-        )
+        user = data['user']  # The user is already validated in the serializer
         
-        if not user:
-            logger.warning(f"Failed login attempt for {data['identifier']}")
-            return Response(
-                {"detail": "Invalid credentials"},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-        
+        # Generate tokens
         refresh = RefreshToken.for_user(user)
         return Response({
             'access': str(refresh.access_token),
@@ -68,12 +58,9 @@ class PasswordResetAPIView(APIView):
         uid = urlsafe_base64_encode(str(user.pk).encode())
         
         # Build reset link that redirects to React frontend
-        reset_url = (
-            f"{settings.BACKEND_DOMAIN}/accounts/reset/{uid}/{token}/"
-            f"?redirect={settings.FRONTEND_URL}/password-reset/confirm"
-        )
+        reset_url = f"{settings.FRONTEND_URL}/password-reset/confirm?uid={uid}&token={token}"
         
-        # Send email (in production, use Celery task)
+        # Send email
         user.email_user(
             subject="Password Reset Request",
             message=f"Click here to reset your password: {reset_url}",
@@ -98,23 +85,3 @@ class PasswordResetConfirmAPIView(APIView):
         user.save()
         
         return Response({"detail": "Password reset successful"})
-
-# Redirect views for email links
-def password_reset_redirect(request):
-    """Redirects to React password reset page"""
-    return redirect(f"{settings.FRONTEND_URL}/password-reset")
-
-def password_reset_confirm_redirect(request, uidb64, token):
-    """Redirects to React password reset confirmation page with token"""
-    try:
-        uid = urlsafe_base64_decode(uidb64).decode()
-        user = User.objects.get(pk=uid)
-        if not default_token_generator.check_token(user, token):
-            raise ValueError("Invalid token")
-    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
-        return redirect(f"{settings.FRONTEND_URL}/invalid-token")
-    
-    return redirect(
-        f"{settings.FRONTEND_URL}/password-reset/confirm?"
-        f"uid={uidb64}&token={token}"
-    )

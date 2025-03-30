@@ -145,6 +145,7 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
     ),
 }
 
@@ -176,3 +177,9 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+AUTHENTICATION_BACKENDS = [
+    'accounts.backends.EmailOrRollNumberBackend',  # Custom backend for email or roll number auth
+    'django.contrib.auth.backends.ModelBackend',  # Default backend
+]
+FRONTEND_URL = 'http://localhost:5173' 
+BACKEND_DOMAIN = 'http://localhost:8000'
