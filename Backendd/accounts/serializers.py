@@ -1,6 +1,5 @@
-# 1. Update serializers.py to handle roll number-based reset
 from rest_framework import serializers
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, authenticate
 from django.utils.http import urlsafe_base64_decode
 from django.contrib.auth.tokens import default_token_generator
 
@@ -37,6 +36,7 @@ class PasswordResetSerializer(serializers.Serializer):
             # Get the linked email for this roll number
             user = User.objects.get(roll_number=value)
             return {'type': 'roll_number', 'value': value, 'email': user.email}
+
 class LoginSerializer(serializers.Serializer):
     email_or_roll = serializers.CharField()
     password = serializers.CharField(write_only=True)
@@ -47,77 +47,29 @@ class LoginSerializer(serializers.Serializer):
             raise serializers.ValidationError("Invalid login credentials.")
         return {'user': user}
 
-
-# 2. Update the views.py for enhanced password reset
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from django.conf import settings
-from django.utils.http import urlsafe_base64_encode
-from django.contrib.auth.tokens import default_token_generator
-from django.template.loader import render_to_string
-from django.core.mail import send_mail
-from django.utils.encoding import force_bytes
-import logging
-
-logger = logging.getLogger(__name__)
-
-class EnhancedPasswordResetAPIView(APIView):
+class PasswordResetConfirmSerializer(serializers.Serializer):
     """
-    Enhanced password reset that works with both roll number and email
+    Serializer for confirming password reset with token
     """
-    def post(self, request):
-        serializer = PasswordResetSerializer(data=request.data)
+    uid = serializers.CharField()
+    token = serializers.CharField()
+    new_password = serializers.CharField(min_length=8, write_only=True)
+    confirm_password = serializers.CharField(min_length=8, write_only=True)
+
+    def validate(self, data):
+        # Validate passwords match
+        if data['new_password'] != data['confirm_password']:
+            raise serializers.ValidationError({"confirm_password": "Passwords do not match"})
         
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-        data = serializer.validated_data
-        
-        # Get the user based on identifier type
-        if data['type'] == 'email':
-            user = User.objects.get(email=data['value'])
-        else:  # roll_number
-            user = User.objects.get(roll_number=data['value'])
-            
-        # Generate reset token and uid
-        token = default_token_generator.make_token(user)
-        uid = urlsafe_base64_encode(force_bytes(user.pk))
-        
-        # Build reset link that redirects to React frontend
-        reset_url = f"{settings.FRONTEND_URL}/password-reset/confirm?uid={uid}&token={token}"
-        
-        # Prepare email context
-        context = {
-            'user': user,
-            'reset_url': reset_url,
-            'site_name': 'Insta Solve - IIIT Kottayam',
-            'domain': settings.BACKEND_DOMAIN.replace('http://', '').replace('https://', ''),
-            'protocol': 'https' if request.is_secure() else 'http',
-        }
-        
-        # Create email content
-        subject = 'Password Reset Request - Insta Solve'
-        email_template = 'accounts/password_reset_email.html'
-        html_message = render_to_string(email_template, context)
-        plain_message = strip_tags(html_message)  # Create plain text version
-        
-        # Send email
+        # Validate token and uid
         try:
-            send_mail(
-                subject=subject,
-                message=plain_message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                html_message=html_message,
-                fail_silently=False,
-            )
-            logger.info(f"Password reset email sent to {user.email}")
-            return Response({"detail": "Password reset email sent"})
+            uid = urlsafe_base64_decode(data['uid']).decode()
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            raise serializers.ValidationError({"uid": "Invalid user ID"})
         
-        except Exception as e:
-            logger.error(f"Failed to send password reset email: {str(e)}")
-            return Response(
-                {"detail": "Failed to send reset email. Please try again later."}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        if not default_token_generator.check_token(user, data['token']):
+            raise serializers.ValidationError({"token": "Invalid or expired token"})
+            
+        data['user'] = user
+        return data

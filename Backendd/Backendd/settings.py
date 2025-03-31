@@ -9,6 +9,8 @@ environ.Env.read_env()
 
 # Base directory of the project
 BASE_DIR = Path(__file__).resolve().parent.parent
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Secret key (Keep it secret in production)
 SECRET_KEY = 'django-insecure-94r5d(d=%be(c$9+znt*s%kw^rdhfm_7ui9&fj*5&si3(v#v@_'
@@ -150,7 +152,7 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 # Frontend and backend URLs
-FRONTEND_URL = 'http://localhost:5173'
+FRONTEND_URL = 'http://localhost:5174'
 BACKEND_DOMAIN = 'http://localhost:8000'
 
 # Security settings (Modify for production)

@@ -339,13 +339,13 @@ function SDash() {
                   <div className="bg-[#2a2f35] p-4 rounded-lg mt-1">
                     {selectedComplaint.attachment.match(/\.(jpg|jpeg|png)$/) ? (
                       <img 
-                        src={`http://localhost:8000${selectedComplaint.attachment}`} 
+                        src={`http://127.0.0.1:8000/${selectedComplaint.attachment}`} 
                         alt="Attachment" 
                         className="max-w-full h-auto rounded"
                       />
                     ) : (
                       <a 
-                        href={`http://localhost:8000${selectedComplaint.attachment}`} 
+                        href={`http://localhost:8000/${selectedComplaint.attachment}`} 
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="text-[#ff7849] hover:underline"
