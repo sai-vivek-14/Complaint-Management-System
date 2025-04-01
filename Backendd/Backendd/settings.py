@@ -146,8 +146,9 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Custom authentication backend for login via email or roll number
+
 AUTHENTICATION_BACKENDS = [
-    'accounts.backends.EmailOrRollNumberBackend',
+    'accounts.backends.MultiFieldAuthBackend',
     'django.contrib.auth.backends.ModelBackend',
 ]
 

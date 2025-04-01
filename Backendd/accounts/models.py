@@ -2,6 +2,37 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import RegexValidator, EmailValidator
 
+class ComplaintType(models.Model):
+    name = models.CharField(max_length=50)  # e.g., "Plumbing", "Electrical"
+    description = models.TextField(blank=True)
+    
+    def __str__(self):
+        return self.name
+
+class Hostel(models.Model):
+    name = models.CharField(max_length=100)
+    location = models.CharField(max_length=100)
+    capacity = models.PositiveIntegerField(default=0)
+    warden = models.ForeignKey(
+        'CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        limit_choices_to={'user_type': 'warden'},
+        related_name='warden_of_hostel'  # Fixed related name
+    )
+    
+    def __str__(self):
+        return str(self.name)
+    
+    @property
+    def current_occupancy(self):
+        return self.residents.count()
+    
+    @property
+    def available_space(self):
+        return self.capacity - self.current_occupancy
+
 class CustomUser(AbstractUser):
     USER_TYPE_CHOICES = (
         ('student', 'Student'),
@@ -33,17 +64,98 @@ class CustomUser(AbstractUser):
             )
         ]
     )
-    hostel = models.ForeignKey('Hostel', on_delete=models.SET_NULL, null=True, blank=True)
+    phone_number = models.CharField(max_length=15, blank=True, null=True)
+    profile_photo = models.ImageField(upload_to='profile_photos/', blank=True, null=True)
+    hostel = models.ForeignKey(
+        Hostel, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='residents'
+    )
 
     def __str__(self):
         if self.user_type == 'student':
-            return f"{self.roll_number or 'Unknown Roll Number'} (Student)"
-        return f"{self.email or 'Unknown Email'} ({self.get_user_type_display()})"
+            return f"{self.roll_number} ({self.get_full_name()})"
+        return f"{self.get_full_name()} ({self.get_user_type_display()})"
 
-class Hostel(models.Model):
-    name = models.CharField(max_length=100)
-    location = models.CharField(max_length=100)
-    warden = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='warden_of')
-
+class Room(models.Model):
+    room_number = models.CharField(max_length=10)
+    hostel = models.ForeignKey(Hostel, on_delete=models.CASCADE, related_name='rooms')
+    capacity = models.PositiveSmallIntegerField(default=2)
+    
     def __str__(self):
-        return self.name
+        return f"{self.hostel.name} - Room {self.room_number}"
+    
+    @property
+    def occupants(self):
+        return self.student_profiles.all()
+    
+    @property
+    def is_full(self):
+        return self.occupants.count() >= self.capacity
+
+class StudentProfile(models.Model):
+    user = models.OneToOneField(
+        CustomUser, 
+        on_delete=models.CASCADE, 
+        related_name='student_profile',
+        limit_choices_to={'user_type': 'student'}
+    )
+    room = models.ForeignKey(Room, on_delete=models.SET_NULL, null=True, blank=True, related_name='student_profiles')
+    year_of_study = models.PositiveSmallIntegerField()
+    department = models.CharField(max_length=100)
+    emergency_contact = models.CharField(max_length=15, blank=True, null=True)
+    
+    def __str__(self):
+        return f"Profile for {self.user.roll_number}"
+
+class WorkerProfile(models.Model):
+    WORKER_TYPE_CHOICES = (
+        ('cleaning', 'Cleaning Staff'),
+        ('maintenance', 'Maintenance Staff'),
+        ('security', 'Security Staff'),
+        ('mess', 'Mess Staff'),
+        ('other', 'Other')
+    )
+    
+    user = models.OneToOneField(
+        CustomUser, 
+        on_delete=models.CASCADE, 
+        related_name='worker_profile',
+        limit_choices_to={'user_type': 'worker'}
+    )
+    worker_type = models.CharField(max_length=20, choices=WORKER_TYPE_CHOICES)
+    complaint_types = models.ManyToManyField(ComplaintType)
+    shift = models.CharField(max_length=50, blank=True, null=True)
+    is_available = models.BooleanField(default=True)
+    
+    def __str__(self):
+        return f"{self.user.get_full_name()} - {self.get_worker_type_display()}"
+
+class Complaint(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('assigned', 'Assigned'),
+        ('resolved', 'Resolved')
+    ]
+    
+    student = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        limit_choices_to={'user_type': 'student'}
+    )
+    complaint_type = models.ForeignKey(ComplaintType, on_delete=models.CASCADE)
+    description = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    assigned_worker = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        limit_choices_to={'user_type': 'worker', 'worker_profile__complaint_types': models.F('complaint_type')}
+    )
+    created_at = models.DateTime(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.complaint_type} complaint by {self.student}"

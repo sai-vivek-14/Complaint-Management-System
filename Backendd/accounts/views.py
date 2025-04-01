@@ -1,122 +1,213 @@
-from rest_framework.views import APIView
+from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework import status
-from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
-from django.shortcuts import redirect
-from django.conf import settings
-from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
-from django.contrib.auth.tokens import default_token_generator
-from django.template.loader import render_to_string
-from django.core.mail import send_mail
-from django.utils.encoding import force_bytes
-from django.utils.html import strip_tags
+from .models import Hostel, Room, StudentProfile, WorkerProfile
 from .serializers import (
-    LoginSerializer,
-    PasswordResetSerializer,
-    PasswordResetConfirmSerializer
+    UserSerializer, 
+    UserRegistrationSerializer,
+    HostelSerializer,
+    RoomSerializer,
+    StudentProfileSerializer,
+    WorkerProfileSerializer,
+    CustomTokenObtainPairSerializer
 )
-import logging
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework.views import APIView
+from django.core.mail import send_mail
+from django.conf import settings
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes
+from django.template.loader import render_to_string
 
 User = get_user_model()
-logger = logging.getLogger(__name__)
 
-class LoginAPIView(APIView):
-    """
-    Handles student (roll number) and staff (email) login
-    Returns JWT tokens on successful authentication
-    """
-    def post(self, request):
-        serializer = LoginSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-        data = serializer.validated_data
-        user = data['user']  # The user is already validated in the serializer
-        
-        # Generate tokens
-        refresh = RefreshToken.for_user(user)
-        return Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'user_type': user.user_type,
-            'first_name': user.first_name,
-            'last_name': user.last_name
-        })
+class IsWardenOrAdmin(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user and (
+            request.user.is_staff or 
+            request.user.user_type == 'warden'
+        )
 
-class EnhancedPasswordResetAPIView(APIView):
-    """
-    Enhanced password reset that works with both roll number and email
-    """
-    def post(self, request):
-        serializer = PasswordResetSerializer(data=request.data)
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return UserRegistrationSerializer
+        return UserSerializer
+    
+    def get_permissions(self):
+        if self.action in ['create']:
+            permission_classes = [permissions.AllowAny]
+        elif self.action in ['update', 'partial_update', 'destroy']:
+            permission_classes = [permissions.IsAuthenticated, IsWardenOrAdmin]
+        else:
+            permission_classes = [permissions.IsAuthenticated]
+        return [permission() for permission in permission_classes]
+    
+    def get_queryset(self):
+        queryset = User.objects.all()
+        user_type = self.request.query_params.get('user_type')
+        hostel_id = self.request.query_params.get('hostel')
         
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-        data = serializer.validated_data
-        
-        # Get the user based on identifier type
-        if data['type'] == 'email':
-            user = User.objects.get(email=data['value'])
-        else:  # roll_number
-            user = User.objects.get(roll_number=data['value'])
+        if user_type:
+            queryset = queryset.filter(user_type=user_type)
+        if hostel_id:
+            queryset = queryset.filter(hostel_id=hostel_id)
             
-        # Generate reset token and uid
+        return queryset
+    
+    @action(detail=False, methods=['get'])
+    def students(self, request):
+        students = User.objects.filter(user_type='student')
+        serializer = self.get_serializer(students, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def wardens(self, request):
+        wardens = User.objects.filter(user_type='warden')
+        serializer = self.get_serializer(wardens, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def workers(self, request):
+        workers = User.objects.filter(user_type='worker')
+        serializer = self.get_serializer(workers, many=True)
+        return Response(serializer.data)
+
+class HostelViewSet(viewsets.ModelViewSet):
+    queryset = Hostel.objects.all()
+    serializer_class = HostelSerializer
+    
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            permission_classes = [permissions.IsAuthenticated, IsWardenOrAdmin]
+        else:
+            permission_classes = [permissions.IsAuthenticated]
+        return [permission() for permission in permission_classes]
+    
+    @action(detail=True, methods=['get'])
+    def students(self, request, pk=None):
+        hostel = self.get_object()
+        students = hostel.residents.filter(user_type='student')
+        serializer = UserSerializer(students, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'])
+    def rooms(self, request, pk=None):
+        hostel = self.get_object()
+        rooms = hostel.rooms.all()
+        serializer = RoomSerializer(rooms, many=True)
+        return Response(serializer.data)
+
+class RoomViewSet(viewsets.ModelViewSet):
+    queryset = Room.objects.all()
+    serializer_class = RoomSerializer
+    
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            permission_classes = [permissions.IsAuthenticated, IsWardenOrAdmin]
+        else:
+            permission_classes = [permissions.IsAuthenticated]
+        return [permission() for permission in permission_classes]
+    
+    @action(detail=True, methods=['get'])
+    def occupants(self, request, pk=None):
+        room = self.get_object()
+        occupants = User.objects.filter(student_profile__room=room)
+        serializer = UserSerializer(occupants, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def assign_student(self, request, pk=None):
+        room = self.get_object()
+        student_id = request.data.get('student_id')
+        
+        if not student_id:
+            return Response({"error": "Student ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            student = User.objects.get(id=student_id, user_type='student')
+        except User.DoesNotExist:
+            return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        if room.is_full:
+            return Response({"error": "Room is already full"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        profile, created = StudentProfile.objects.get_or_create(user=student)
+        profile.room = room
+        profile.save()
+        
+        student.hostel = room.hostel
+        student.save()
+        
+        return Response({"success": "Student assigned to room successfully"})
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
+
+class PasswordResetRequestView(APIView):
+    def post(self, request):
+        email_or_roll = request.data.get('email_or_roll')
+        
+        try:
+            if '@' in email_or_roll:
+                user = User.objects.get(email=email_or_roll)
+            else:
+                user = User.objects.get(roll_number=email_or_roll)
+        except User.DoesNotExist:
+            return Response(
+                {'error': 'User with this email/roll number does not exist'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
         token = default_token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         
-        # Build reset link that redirects to React frontend
-        reset_url = f"{settings.FRONTEND_URL}/password-reset/confirm?uid={uid}&token={token}"
-        
-        # Prepare email context
         context = {
             'user': user,
-            'reset_url': reset_url,
-            'site_name': 'Insta Solve - IIIT Kottayam',
-            'domain': settings.BACKEND_DOMAIN.replace('http://', '').replace('https://', ''),
+            'uid': uid,
+            'token': token,
             'protocol': 'https' if request.is_secure() else 'http',
+            'domain': request.get_host(),
         }
         
-        # Create email content
-        subject = 'Password Reset Request - Insta Solve'
-        email_template = 'accounts/password_reset.html'  # Changed from password_reset_email.html
-        html_message = render_to_string(email_template, context)
-        plain_message = strip_tags(html_message)  # Create plain text version
+        subject = 'Password Reset Request'
+        message = render_to_string('email/password_reset_email.txt', context)
+        email_from = settings.DEFAULT_FROM_EMAIL
+        recipient_list = [user.email]
         
-        # Send email
-        try:
-            send_mail(
-                subject=subject,
-                message=plain_message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                html_message=html_message,
-                fail_silently=False,
-            )
-            logger.info(f"Password reset email sent to {user.email}")
-            return Response({"detail": "Password reset email sent"})
+        send_mail(subject, message, email_from, recipient_list)
         
-        except Exception as e:
-            logger.error(f"Failed to send password reset email: {str(e)}")
-            return Response(
-                {"detail": "Failed to send reset email. Please try again later."}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        return Response(
+            {'success': 'Password reset email sent'},
+            status=status.HTTP_200_OK
+        )
 
-class PasswordResetConfirmAPIView(APIView):
-    """
-    Handles password reset confirmation
-    Validates token and sets new password
-    """
+class PasswordResetConfirmView(APIView):
     def post(self, request):
-        serializer = PasswordResetConfirmSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        uid = request.data.get('uid')
+        token = request.data.get('token')
+        password = request.data.get('password')
         
-        data = serializer.validated_data
-        user = data['user']
-        user.set_password(data['new_password'])
-        user.save()
+        try:
+            uid = urlsafe_base64_decode(uid).decode()
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            user = None
         
-        return Response({"detail": "Password reset successful"})
+        if user is not None and default_token_generator.check_token(user, token):
+            user.set_password(password)
+            user.save()
+            return Response(
+                {'success': 'Password has been reset successfully'},
+                status=status.HTTP_200_OK
+            )
+        else:
+            return Response(
+                {'error': 'Invalid token or user'},
+                status=status.HTTP_400_BAD_REQUEST
+            )

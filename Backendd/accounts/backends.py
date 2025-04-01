@@ -1,30 +1,28 @@
-# File: accounts/backends.py
-
 from django.contrib.auth import get_user_model
-from django.contrib.auth.backends import ModelBackend
 from django.db.models import Q
 
 User = get_user_model()
 
-class EmailOrRollNumberBackend(ModelBackend):
-    """
-    Authentication backend that allows login with either email or roll number
-    """
+class MultiFieldAuthBackend:
     def authenticate(self, request, username=None, password=None, **kwargs):
         try:
-            # Check if the username is an email or roll number
-            user = User.objects.filter(
-                Q(email=username) | 
-                Q(roll_number=username)
-            ).first()
+            # Check if username contains @ (email) or is roll number
+            if '@' in username:
+                user = User.objects.get(email=username)
+                # Non-students must login with email
+                if user.user_type == 'student':
+                    return None
+            else:
+                user = User.objects.get(roll_number=username)
+                # Students must login with roll number
+                if user.user_type != 'student':
+                    return None
             
-            if user and user.check_password(password):
+            if user.check_password(password):
                 return user
         except User.DoesNotExist:
             return None
-            
-        return None
-        
+
     def get_user(self, user_id):
         try:
             return User.objects.get(pk=user_id)

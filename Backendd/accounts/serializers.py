@@ -1,75 +1,102 @@
 from rest_framework import serializers
-from django.contrib.auth import get_user_model, authenticate
-from django.utils.http import urlsafe_base64_decode
-from django.contrib.auth.tokens import default_token_generator
+from django.contrib.auth import get_user_model
+from .models import Hostel, Room, StudentProfile, WorkerProfile
+from django.contrib.auth import authenticate
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 User = get_user_model()
 
-class PasswordResetSerializer(serializers.Serializer):
-    """
-    Enhanced password reset serializer that accepts either email or roll number
-    """
-    identifier = serializers.CharField(required=True)
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        credentials = {
+            'username': attrs.get("username"),
+            'password': attrs.get("password")
+        }
+        
+        user = authenticate(**credentials)
+        if user:
+            if not user.is_active:
+                raise serializers.ValidationError("User account is disabled.")
+            
+            data = super().validate(attrs)
+            data['user_type'] = user.user_type
+            data['email'] = user.email
+            data['roll_number'] = user.roll_number
+            return data
+        raise serializers.ValidationError("Unable to log in with provided credentials.")
 
-    def validate_identifier(self, value):
-        # Check if identifier is an email or roll number
-        if '@' in value:
-            # Email format validation
-            if not value.endswith('@iiitkottayam.ac.in'):
-                raise serializers.ValidationError("Please use your institute email address")
-            
-            # Check if user exists with this email
-            if not User.objects.filter(email=value).exists():
-                raise serializers.ValidationError("No account found with this email address")
-            
-            return {'type': 'email', 'value': value}
-        else:
-            # Roll number format validation
-            import re
-            if not re.match(r'^(2021|2022|2023|2024)(bcs|bcd|bcy|bec)\d{4}$', value):
-                raise serializers.ValidationError("Invalid roll number format")
-            
-            # Check if user exists with this roll number
-            if not User.objects.filter(roll_number=value).exists():
-                raise serializers.ValidationError("No account found with this roll number")
-            
-            # Get the linked email for this roll number
-            user = User.objects.get(roll_number=value)
-            return {'type': 'roll_number', 'value': value, 'email': user.email}
+class UserSerializer(serializers.ModelSerializer):
+    student_profile = serializers.PrimaryKeyRelatedField(read_only=True)
+    worker_profile = serializers.PrimaryKeyRelatedField(read_only=True)
+    
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'roll_number', 'first_name', 'last_name', 
+                  'user_type', 'hostel', 'phone_number', 'profile_photo', 
+                  'student_profile', 'worker_profile']
+        read_only_fields = ['id', 'email']
 
-class LoginSerializer(serializers.Serializer):
-    email_or_roll = serializers.CharField()
+class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
-
-    def validate(self, data):
-        user = authenticate(username=data['email_or_roll'], password=data['password'])
-        if not user:
-            raise serializers.ValidationError("Invalid login credentials.")
-        return {'user': user}
-
-class PasswordResetConfirmSerializer(serializers.Serializer):
-    """
-    Serializer for confirming password reset with token
-    """
-    uid = serializers.CharField()
-    token = serializers.CharField()
-    new_password = serializers.CharField(min_length=8, write_only=True)
-    confirm_password = serializers.CharField(min_length=8, write_only=True)
-
-    def validate(self, data):
-        # Validate passwords match
-        if data['new_password'] != data['confirm_password']:
-            raise serializers.ValidationError({"confirm_password": "Passwords do not match"})
+    confirm_password = serializers.CharField(write_only=True)
+    
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'roll_number', 'first_name', 'last_name', 
+                 'user_type', 'hostel', 'password', 'confirm_password']
         
-        # Validate token and uid
-        try:
-            uid = urlsafe_base64_decode(data['uid']).decode()
-            user = User.objects.get(pk=uid)
-        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
-            raise serializers.ValidationError({"uid": "Invalid user ID"})
-        
-        if not default_token_generator.check_token(user, data['token']):
-            raise serializers.ValidationError({"token": "Invalid or expired token"})
+    def validate(self, data):
+        if data['password'] != data['confirm_password']:
+            raise serializers.ValidationError("Passwords do not match")
             
-        data['user'] = user
+        if data['user_type'] == 'student' and not data.get('roll_number'):
+            raise serializers.ValidationError("Roll number is required for students")
+            
         return data
+        
+    def create(self, validated_data):
+        validated_data.pop('confirm_password')
+        password = validated_data.pop('password')
+        
+        user = User.objects.create(**validated_data)
+        user.set_password(password)
+        user.save()
+        
+        if validated_data['user_type'] == 'student':
+            StudentProfile.objects.create(user=user)
+        elif validated_data['user_type'] == 'worker':
+            WorkerProfile.objects.create(user=user)
+            
+        return user
+
+class HostelSerializer(serializers.ModelSerializer):
+    current_occupancy = serializers.ReadOnlyField()
+    available_space = serializers.ReadOnlyField()
+    
+    class Meta:
+        model = Hostel
+        fields = ['id', 'name', 'location', 'capacity', 'current_occupancy', 'available_space']
+
+class RoomSerializer(serializers.ModelSerializer):
+    occupants_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Room
+        fields = ['id', 'room_number', 'hostel', 'capacity', 'occupants_count', 'is_full']
+    
+    def get_occupants_count(self, obj):
+        return obj.occupants.count()
+
+class StudentProfileSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    
+    class Meta:
+        model = StudentProfile
+        fields = ['id', 'user', 'room', 'year_of_study', 'department', 'emergency_contact']
+
+class WorkerProfileSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    
+    class Meta:
+        model = WorkerProfile
+        fields = ['id', 'user', 'worker_type', 'assigned_hostel', 'shift']

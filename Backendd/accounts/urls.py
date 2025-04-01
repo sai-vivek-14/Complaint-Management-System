@@ -1,19 +1,24 @@
-from django.urls import path
-from .views import LoginAPIView, EnhancedPasswordResetAPIView, PasswordResetConfirmAPIView
-from django.contrib.auth import views as auth_views
-from .forms import CustomPasswordResetForm
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from rest_framework_simplejwt.views import TokenRefreshView
+from .views import (
+    UserViewSet,
+    HostelViewSet,
+    RoomViewSet,
+    CustomTokenObtainPairView,
+    PasswordResetRequestView,
+    PasswordResetConfirmView
+)
+
+router = DefaultRouter()
+router.register(r'users', UserViewSet)
+router.register(r'hostels', HostelViewSet)
+router.register(r'rooms', RoomViewSet)
 
 urlpatterns = [
-    path('api/auth/login/', LoginAPIView.as_view(), name='api-login'),
-    path('api/auth/password_reset/', EnhancedPasswordResetAPIView.as_view(), name='api-password-reset'),
-    path('api/auth/password_reset/confirm/', PasswordResetConfirmAPIView.as_view(), name='api-password-reset-confirm'),
-    
-    # Traditional password reset URLs (optional if you want to keep Django's built-in templates)
-    path('password_reset/', auth_views.PasswordResetView.as_view(
-        form_class=CustomPasswordResetForm,
-        template_name='accounts/password_reset_form.html',  # Add this template if needed
-        email_template_name='accounts/password_reset.html',  # Changed to match existing file
-        subject_template_name='accounts/password_reset_subject.txt',  # Create this file
-        from_email='hostcomplaints@gmail.com',
-    ), name='password_reset'),
+    path('api/auth/login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/auth/password_reset/', PasswordResetRequestView.as_view(), name='password_reset'),
+    path('api/auth/password_reset/confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
+    path('api/', include(router.urls)),
 ]
