@@ -178,8 +178,7 @@ class PasswordResetRequestView(APIView):
         }
         
         subject = 'Password Reset Request'
-        message = render_to_string('Backendd/accounts/templates/accounts/password_reset_email.txt', context)
-
+        message = render_to_string('accounts/password_reset_email.txt', context)
         email_from = settings.DEFAULT_FROM_EMAIL
         recipient_list = [user.email]
         

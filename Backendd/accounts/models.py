@@ -75,9 +75,16 @@ class CustomUser(AbstractUser):
     )
 
     def __str__(self):
+        full_name = self.get_full_name().strip()
+        
         if self.user_type == 'student':
-            return f"{self.roll_number} ({self.get_full_name()})"
-        return f"{self.get_full_name()} ({self.get_user_type_display()})"
+            return f"{self.roll_number} ({full_name or self.username})"
+        
+        # For wardens and other user types, include email if name is empty
+        if not full_name:
+            return f"{self.username or self.email} ({self.get_user_type_display()})"
+        
+        return f"{full_name} ({self.get_user_type_display()})"
 
 class Room(models.Model):
     room_number = models.CharField(max_length=10)
@@ -112,12 +119,10 @@ class StudentProfile(models.Model):
 
 class WorkerProfile(models.Model):
     WORKER_TYPE_CHOICES = (
-        ('cleaning', 'Cleaning Staff'),
-        ('maintenance', 'Maintenance Staff'),
-        ('security', 'Security Staff'),
-        ('mess', 'Mess Staff'),
-        ('other', 'Other')
-    )
+    ('cleaning', 'Cleaning Staff'),
+    ('itsupport', 'IT Support Staff')
+)
+
     
     user = models.OneToOneField(
         CustomUser, 
@@ -143,7 +148,8 @@ class Complaint(models.Model):
     student = models.ForeignKey(
         CustomUser,
         on_delete=models.CASCADE,
-        limit_choices_to={'user_type': 'student'}
+        limit_choices_to={'user_type': 'student'},
+        related_name='filed_complaints'  # Add this line
     )
     complaint_type = models.ForeignKey(ComplaintType, on_delete=models.CASCADE)
     description = models.TextField()
@@ -153,15 +159,7 @@ class Complaint(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        limit_choices_to={'user_type': 'worker', 'worker_profile__complaint_types': models.F('complaint_type')}
+        limit_choices_to={'user_type': 'worker', 'worker_profile__complaint_types': models.F('complaint_type')},
+        related_name='assigned_complaints'  # Add this line
     )
     created_at = models.DateTimeField(auto_now_add=True)
-    def get_available_workers(self):
-        return CustomUser.objects.filter(
-            user_type='worker',
-            worker_profile__complaint_types=self.complaint_type,
-            worker_profile__is_available=True
-        )
-    
-    def __str__(self):
-        return f"{self.complaint_type} complaint by {self.student}"
