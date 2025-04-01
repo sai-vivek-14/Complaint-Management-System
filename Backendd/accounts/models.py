@@ -155,7 +155,13 @@ class Complaint(models.Model):
         blank=True,
         limit_choices_to={'user_type': 'worker', 'worker_profile__complaint_types': models.F('complaint_type')}
     )
-    created_at = models.DateTime(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    def get_available_workers(self):
+        return CustomUser.objects.filter(
+            user_type='worker',
+            worker_profile__complaint_types=self.complaint_type,
+            worker_profile__is_available=True
+        )
     
     def __str__(self):
         return f"{self.complaint_type} complaint by {self.student}"

@@ -2,7 +2,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
-from .models import Hostel, Room, StudentProfile, WorkerProfile
+from .models import Hostel, Room, StudentProfile, WorkerProfile, Complaint, ComplaintType
 from .serializers import (
     UserSerializer, 
     UserRegistrationSerializer,
@@ -10,7 +10,9 @@ from .serializers import (
     RoomSerializer,
     StudentProfileSerializer,
     WorkerProfileSerializer,
-    CustomTokenObtainPairSerializer
+    CustomTokenObtainPairSerializer,
+    ComplaintSerializer,
+    ComplaintTypeSerializer
 )
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.views import APIView
@@ -176,7 +178,8 @@ class PasswordResetRequestView(APIView):
         }
         
         subject = 'Password Reset Request'
-        message = render_to_string('email/password_reset_email.txt', context)
+        message = render_to_string('Backendd/accounts/templates/accounts/password_reset_email.txt', context)
+
         email_from = settings.DEFAULT_FROM_EMAIL
         recipient_list = [user.email]
         
@@ -211,3 +214,75 @@ class PasswordResetConfirmView(APIView):
                 {'error': 'Invalid token or user'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+class ComplaintViewSet(viewsets.ModelViewSet):
+    queryset = Complaint.objects.all()
+    serializer_class = ComplaintSerializer
+    
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            permission_classes = [permissions.IsAuthenticated]
+        else:
+            permission_classes = [permissions.IsAuthenticated]
+        return [permission() for permission in permission_classes]
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        user = self.request.user
+        
+        if user.user_type == 'student':
+            return queryset.filter(student=user)
+        elif user.user_type == 'worker':
+            return queryset.filter(assigned_worker=user)
+        
+        return queryset
+    
+    @action(detail=True, methods=['post'])
+    def assign_worker(self, request, pk=None):
+        complaint = self.get_object()
+        worker_id = request.data.get('worker_id')
+        
+        if not worker_id:
+            return Response({"error": "Worker ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            worker = User.objects.get(
+                id=worker_id, 
+                user_type='worker',
+                worker_profile__complaint_types=complaint.complaint_type,
+                worker_profile__is_available=True
+            )
+        except User.DoesNotExist:
+            return Response(
+                {"error": "No available worker found with this ID that can handle this complaint type"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        complaint.assigned_worker = worker
+        complaint.status = 'assigned'
+        complaint.save()
+        
+        return Response({"success": "Worker assigned to complaint successfully"})
+    
+    @action(detail=True, methods=['get'])
+    def available_workers(self, request, pk=None):
+        complaint = self.get_object()
+        available_workers = User.objects.filter(
+            user_type='worker',
+            worker_profile__complaint_types=complaint.complaint_type,
+            worker_profile__is_available=True
+        )
+        serializer = UserSerializer(available_workers, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def mark_resolved(self, request, pk=None):
+        complaint = self.get_object()
+        complaint.status = 'resolved'
+        complaint.save()
+        return Response({"success": "Complaint marked as resolved"})
+
+class ComplaintTypeViewSet(viewsets.ModelViewSet):
+    queryset = ComplaintType.objects.all()
+    serializer_class = ComplaintTypeSerializer
+    permission_classes = [permissions.IsAuthenticated, IsWardenOrAdmin]

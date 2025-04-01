@@ -7,13 +7,15 @@ from .views import (
     RoomViewSet,
     CustomTokenObtainPairView,
     PasswordResetRequestView,
-    PasswordResetConfirmView
+    PasswordResetConfirmView,
+    ComplaintViewSet
 )
 
 router = DefaultRouter()
 router.register(r'users', UserViewSet)
 router.register(r'hostels', HostelViewSet)
 router.register(r'rooms', RoomViewSet)
+router.register(r'complaints', ComplaintViewSet)
 
 urlpatterns = [
     path('api/auth/login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
