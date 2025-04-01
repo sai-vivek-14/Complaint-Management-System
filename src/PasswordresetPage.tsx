@@ -25,16 +25,16 @@ const PasswordResetPage: React.FC = () => {
     try {
       await axios.post(
         'http://localhost:8000/accounts/api/auth/password_reset/',
-        { identifier },
+        { email_or_roll: identifier },  // Match backend field name
         {
           headers: {
             'Content-Type': 'application/json',
           },
         }
       );
-      setSuccess('Password reset email sent. Please check your institute email inbox.');
+      setSuccess('Password reset email sent. Please check your email inbox.');
     } catch (err: any) {
-      setError(err.response?.data?.identifier || err.response?.data?.detail || 'Failed to send reset email');
+      setError(err.response?.data?.error || 'Failed to send reset email');
     } finally {
       setIsLoading(false);
     }
@@ -58,7 +58,7 @@ const PasswordResetPage: React.FC = () => {
         {
           uid,
           token,
-          new_password: newPassword,
+          password: newPassword,
           confirm_password: confirmPassword,
         },
         {
@@ -70,7 +70,7 @@ const PasswordResetPage: React.FC = () => {
       setSuccess('Password reset successfully! You can now login with your new password.');
       setTimeout(() => navigate('/login'), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to reset password');
+      setError(err.response?.data?.error || 'Failed to reset password');
     } finally {
       setIsLoading(false);
     }
@@ -109,7 +109,7 @@ const PasswordResetPage: React.FC = () => {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   className="w-full px-4 py-3 bg-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-300/50 border border-gray-600"
-                  placeholder="Enter new password"
+                  placeholder="Enter new password (min 8 characters)"
                   minLength={8}
                   required
                 />
@@ -140,7 +140,6 @@ const PasswordResetPage: React.FC = () => {
             </form>
           ) : (
             <>
-              {/* Toggle between email and roll number */}
               <div className="flex justify-center mb-6">
                 <div className="inline-flex rounded-md shadow-sm">
                   <button
@@ -171,7 +170,7 @@ const PasswordResetPage: React.FC = () => {
               <form onSubmit={handleResetRequest} className="space-y-6">
                 <div>
                   <label className="text-gray-300 text-sm font-medium mb-2 block">
-                    {identifierType === 'email' ? 'Email Address' : 'Roll Number'}
+                    {identifierType === 'email' ? 'Institute Email' : 'Roll Number'}
                   </label>
                   <input
                     type={identifierType === 'email' ? 'email' : 'text'}

@@ -141,7 +141,7 @@ USE_TZ = True
 
 # Static files settings
 STATIC_URL = 'static/'
-
+AUTH_USER_MODEL = 'accounts.CustomUser'
 # Default auto field setting
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

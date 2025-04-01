@@ -14,6 +14,7 @@ from .serializers import (
     ComplaintSerializer,
     ComplaintTypeSerializer
 )
+from django.urls import reverse
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.views import APIView
 from django.core.mail import send_mail
@@ -23,6 +24,7 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes
 from django.template.loader import render_to_string
 
+# Get the custom user model
 User = get_user_model()
 
 class IsWardenOrAdmin(permissions.BasePermission):
@@ -166,23 +168,29 @@ class PasswordResetRequestView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
+        # Generate token and uid
         token = default_token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         
-        context = {
-            'user': user,
-            'uid': uid,
-            'token': token,
-            'protocol': 'https' if request.is_secure() else 'http',
-            'domain': request.get_host(),
-        }
+        # Build reset URL
+        reset_url = request.build_absolute_uri(
+            reverse('password_reset_confirm') + f'?uid={uid}&token={token}'
+        )
         
+        # Send email
         subject = 'Password Reset Request'
-        message = render_to_string('accounts/password_reset_email.txt', context)
-        email_from = settings.DEFAULT_FROM_EMAIL
-        recipient_list = [user.email]
+        message = render_to_string('password_reset_email.html', {
+            'user': user,
+            'reset_url': reset_url,
+        })
         
-        send_mail(subject, message, email_from, recipient_list)
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            fail_silently=False,
+        )
         
         return Response(
             {'success': 'Password reset email sent'},
@@ -194,6 +202,13 @@ class PasswordResetConfirmView(APIView):
         uid = request.data.get('uid')
         token = request.data.get('token')
         password = request.data.get('password')
+        confirm_password = request.data.get('confirm_password')
+        
+        if password != confirm_password:
+            return Response(
+                {'error': 'Passwords do not match'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         try:
             uid = urlsafe_base64_decode(uid).decode()
