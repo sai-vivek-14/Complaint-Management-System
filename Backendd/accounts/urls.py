@@ -10,7 +10,7 @@ from .views import (
     PasswordResetConfirmView,
     ComplaintViewSet
 )
-from .views import get_user_profile
+
 router = DefaultRouter()
 router.register(r'users', UserViewSet)
 router.register(r'hostels', HostelViewSet)
@@ -27,5 +27,4 @@ urlpatterns = [
         name='password_reset_confirm'
     ),
     path('api/', include(router.urls)),
-    path('profile/', get_user_profile, name='user-profile'),
 ]

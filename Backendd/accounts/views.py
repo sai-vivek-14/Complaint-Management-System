@@ -2,7 +2,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
-from .models import Hostel, Room, StudentProfile, WorkerProfile, Complaint, ComplaintType,CustomUser
+from .models import Hostel, Room, StudentProfile, WorkerProfile, Complaint, ComplaintType
 from .serializers import (
     UserSerializer, 
     UserRegistrationSerializer,
@@ -23,27 +23,9 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes
 from django.template.loader import render_to_string
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.decorators import api_view, permission_classes
-from .serializers import UserProfileSerializer
-User = get_user_model()
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_user_profile(request):
-    user = request.user
-    # Prefetch related data to optimize queries
-    user = CustomUser.objects.select_related(
-        'student_profile', 
-        'worker_profile',
-        'hostel',
-        'student_profile__room'
-    ).get(pk=user.pk)
-    
-    serializer = UserProfileSerializer(user)
-    return Response(serializer.data)
 
 # Get the custom user model
-
+User = get_user_model()
 
 class IsWardenOrAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
