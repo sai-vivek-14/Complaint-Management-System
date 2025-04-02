@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
+// Set the base URL for API requests
+const API_BASE_URL = 'http://localhost:8000'; // Change this as needed
+
 const PasswordResetPage: React.FC = () => {
   const [identifier, setIdentifier] = useState<string>('');
   const [identifierType, setIdentifierType] = useState<'email' | 'roll'>('email');
@@ -24,7 +27,7 @@ const PasswordResetPage: React.FC = () => {
 
     try {
       await axios.post(
-        'http://localhost:8000/accounts/api/auth/password_reset/',
+        `${API_BASE_URL}/accounts/api/auth/password_reset/`,
         { email_or_roll: identifier },  // Match backend field name
         {
           headers: {
@@ -35,6 +38,7 @@ const PasswordResetPage: React.FC = () => {
       setSuccess('Password reset email sent. Please check your email inbox.');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to send reset email');
+      console.error('Password reset request error:', err);
     } finally {
       setIsLoading(false);
     }
@@ -52,9 +56,15 @@ const PasswordResetPage: React.FC = () => {
       return;
     }
 
+    if (!uid || !token) {
+      setError("Missing reset credentials. Please try again with a valid reset link.");
+      setIsLoading(false);
+      return;
+    }
+
     try {
       await axios.post(
-        'http://localhost:8000/accounts/api/auth/password_reset/confirm/',
+        `${API_BASE_URL}/accounts/api/auth/password_reset/confirm/`,
         {
           uid,
           token,
@@ -71,6 +81,7 @@ const PasswordResetPage: React.FC = () => {
       setTimeout(() => navigate('/login'), 3000);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to reset password');
+      console.error('Password reset error:', err);
     } finally {
       setIsLoading(false);
     }

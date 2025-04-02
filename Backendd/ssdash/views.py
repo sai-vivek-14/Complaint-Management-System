@@ -8,6 +8,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
 
+
 class ComplaintViewSet(viewsets.ModelViewSet):
     queryset = Complaint.objects.all().order_by('-created_at')
     serializer_class = ComplaintSerializer

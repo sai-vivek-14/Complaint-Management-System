@@ -1,4 +1,3 @@
-
 import Navbar from './Components/Navbar';
 import ProfileCard from './Components/ProfileCard';
 

@@ -20,11 +20,7 @@ router.register(r'complaints', ComplaintViewSet)
 urlpatterns = [
     path('api/auth/login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-     path('api/auth/password_reset/', PasswordResetRequestView.as_view(), name='password_reset'),
-    path(
-        'api/auth/password_reset/confirm/<uidb64>/<token>/',
-        PasswordResetConfirmView.as_view(),
-        name='password_reset_confirm'
-    ),
+    path('api/auth/password_reset/', PasswordResetRequestView.as_view(), name='password_reset'),
+    path('api/auth/password_reset/confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     path('api/', include(router.urls)),
 ]
