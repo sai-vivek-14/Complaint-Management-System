@@ -2,28 +2,18 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import RegexValidator, EmailValidator
 
-class ComplaintType(models.Model):
-    name = models.CharField(max_length=50)  # e.g., "Plumbing", "Electrical"
+class Hostel(models.Model):
+    """Model representing a hostel building"""
+    name = models.CharField(max_length=100, unique=True)
+    location = models.CharField(max_length=100)
+    capacity = models.PositiveIntegerField(default=0)
     description = models.TextField(blank=True)
+    
+    class Meta:
+        ordering = ['name']
     
     def __str__(self):
         return self.name
-
-class Hostel(models.Model):
-    name = models.CharField(max_length=100)
-    location = models.CharField(max_length=100)
-    capacity = models.PositiveIntegerField(default=0)
-    warden = models.ForeignKey(
-        'CustomUser',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        limit_choices_to={'user_type': 'warden'},
-        related_name='warden_of_hostel'  # Fixed related name
-    )
-    
-    def __str__(self):
-        return str(self.name)
     
     @property
     def current_occupancy(self):
@@ -31,28 +21,61 @@ class Hostel(models.Model):
     
     @property
     def available_space(self):
-        return self.capacity - self.current_occupancy
+        return max(0, self.capacity - self.current_occupancy)
 
-class CustomUser(AbstractUser):
-    USER_TYPE_CHOICES = (
-        ('student', 'Student'),
-        ('warden', 'Warden'),
-        ('hostel_staff', 'Hostel Staff'),
-        ('worker', 'Worker'),
+class Room(models.Model):
+    """Model representing a room within a hostel"""
+    room_number = models.CharField(max_length=10)
+    hostel = models.ForeignKey(
+        Hostel, 
+        on_delete=models.CASCADE, 
+        related_name='rooms'
+    )
+    capacity = models.PositiveSmallIntegerField(default=2)
+    
+    class Meta:
+        unique_together = ('hostel', 'room_number')
+        ordering = ['hostel', 'room_number']
+    
+    def __str__(self):
+        return f"{self.hostel.name} - Room {self.room_number}"
+    
+    @property
+    def current_occupants(self):
+        return self.student_profiles.count()
+    
+    @property
+    def is_full(self):
+        return self.current_occupants >= self.capacity
+
+class ComplaintType(models.Model):
+    """Model for different types of complaints"""
+    name = models.CharField(max_length=50, unique=True)
+    description = models.TextField(blank=True)
+    response_time = models.DurationField(
+        help_text="Expected time to resolve this complaint type"
     )
     
-    user_type = models.CharField(max_length=20, choices=USER_TYPE_CHOICES)
-    roll_number = models.CharField(
+    class Meta:
+        ordering = ['name']
+    
+    def __str__(self):
+        return self.name
+
+class CustomUser(AbstractUser):
+    """Custom user model extending Django's AbstractUser"""
+    class UserType(models.TextChoices):
+        STUDENT = 'student', 'Student'
+        WARDEN = 'warden', 'Warden'
+        STAFF = 'staff', 'Hostel Staff'
+        WORKER = 'worker', 'Maintenance Worker'
+        ADMIN = 'admin', 'Administrator'
+    
+    # Core Fields
+    user_type = models.CharField(
         max_length=20,
-        unique=True,
-        blank=True,
-        null=True,
-        validators=[
-            RegexValidator(
-                regex=r'^(2021|2022|2023|2024)(bcs|bcd|bcy|bec)\d{4}$',
-                message="Roll number must be in format: YYYYgroupXXXX"
-            )
-        ]
+        choices=UserType.choices,
+        default=UserType.STUDENT
     )
     email = models.EmailField(
         unique=True,
@@ -60,106 +83,176 @@ class CustomUser(AbstractUser):
             EmailValidator(),
             RegexValidator(
                 regex=r'^[a-zA-Z0-9._%+-]+@iiitkottayam\.ac\.in$',
-                message="Email must be a valid @iiitkottayam.ac.in address"
+                message="Must be a valid @iiitkottayam.ac.in address"
             )
         ]
     )
-    phone_number = models.CharField(max_length=15, blank=True, null=True)
-    profile_photo = models.ImageField(upload_to='profile_photos/', blank=True, null=True)
-    hostel = models.ForeignKey(
-        Hostel, 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True, 
-        related_name='residents'
+    
+    # Student-specific fields
+    roll_number = models.CharField(
+        max_length=20,
+        unique=True,
+        blank=True,
+        null=True,
+        validators=[
+            RegexValidator(
+                regex=r'^(202[1-4])(bcs|bcd|bcy|bec)\d{4}$',
+                message="Format: YYYYgroupXXXX (e.g., 2023bcy0037)"
+            )
+        ]
     )
-
-    def __str__(self):
-        full_name = self.get_full_name().strip()
-        
-        if self.user_type == 'student':
-            return f"{self.roll_number} ({full_name or self.username})"
-        
-        # For wardens and other user types, include email if name is empty
-        if not full_name:
-            return f"{self.username or self.email} ({self.get_user_type_display()})"
-        
-        return f"{full_name} ({self.get_user_type_display()})"
-
-class Room(models.Model):
-    room_number = models.CharField(max_length=10)
-    hostel = models.ForeignKey(Hostel, on_delete=models.CASCADE, related_name='rooms')
-    capacity = models.PositiveSmallIntegerField(default=2)
     
-    def __str__(self):
-        return f"{self.hostel.name} - Room {self.room_number}"
-    
-    @property
-    def occupants(self):
-        return self.student_profiles.all()
-    
-    @property
-    def is_full(self):
-        return self.occupants.count() >= self.capacity
-
-class StudentProfile(models.Model):
-    user = models.OneToOneField(
-        CustomUser, 
-        on_delete=models.CASCADE, 
-        related_name='student_profile',
-        limit_choices_to={'user_type': 'student'}
+    # Contact Information
+    phone_number = models.CharField(
+        max_length=15,
+        blank=True,
+        null=True,
+        validators=[
+            RegexValidator(
+                regex=r'^\+?1?\d{9,15}$',
+                message="Phone number must be in international format"
+            )
+        ]
     )
-    room = models.ForeignKey(Room, on_delete=models.SET_NULL, null=True, blank=True, related_name='student_profiles')
-    year_of_study = models.PositiveSmallIntegerField()
-    department = models.CharField(max_length=100)
     emergency_contact = models.CharField(max_length=15, blank=True, null=True)
     
+    # Profile Information
+    profile_photo = models.ImageField(
+        upload_to='profile_photos/',
+        blank=True,
+        null=True
+    )
+    hostel = models.ForeignKey(
+        Hostel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='residents'
+    )
+    room = models.ForeignKey(
+        Room,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='occupants'
+    )
+    
+    # Timestamps
+    date_joined = models.DateTimeField(auto_now_add=True)
+    last_updated = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['last_name', 'first_name']
+        verbose_name = 'User'
+        verbose_name_plural = 'Users'
+    
     def __str__(self):
-        return f"Profile for {self.user.roll_number}"
+        if self.user_type == self.UserType.STUDENT and self.roll_number:
+            return f"{self.roll_number} - {self.get_full_name()}"
+        return f"{self.get_full_name()} ({self.get_user_type_display()})"
+    
+    def save(self, *args, **kwargs):
+        # Clean fields before saving
+        if self.phone_number:
+            self.phone_number = ''.join(c for c in self.phone_number if c.isdigit())
+        super().save(*args, **kwargs)
+
+class StudentProfile(models.Model):
+    """Extended profile for students"""
+    user = models.OneToOneField(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='student_profile',
+        limit_choices_to={'user_type': CustomUser.UserType.STUDENT}
+    )
+    department = models.CharField(max_length=100)
+    year_of_study = models.PositiveSmallIntegerField()
+    is_resident = models.BooleanField(default=True)
+    
+    class Meta:
+        verbose_name = 'Student Profile'
+    
+    def __str__(self):
+        return f"Student Profile: {self.user.roll_number}"
 
 class WorkerProfile(models.Model):
-    WORKER_TYPE_CHOICES = (
-    ('cleaning', 'Cleaning Staff'),
-    ('itsupport', 'IT Support Staff')
-)
-
+    """Extended profile for maintenance workers"""
+    class WorkerType(models.TextChoices):
+        PLUMBER = 'plumbing', 'Plumbing'
+        ELECTRICIAN = 'electrical', 'Electrical'
+        CARPENTER = 'carpentry', 'Carpentry'
+        CLEANER = 'cleaning', 'Cleaning'
+        IT_SUPPORT = 'it_support', 'IT Support'
     
     user = models.OneToOneField(
-        CustomUser, 
-        on_delete=models.CASCADE, 
+        CustomUser,
+        on_delete=models.CASCADE,
         related_name='worker_profile',
-        limit_choices_to={'user_type': 'worker'}
+        limit_choices_to={'user_type': CustomUser.UserType.WORKER}
     )
-    worker_type = models.CharField(max_length=20, choices=WORKER_TYPE_CHOICES)
-    complaint_types = models.ManyToManyField(ComplaintType)
-    shift = models.CharField(max_length=50, blank=True, null=True)
+    worker_type = models.CharField(
+        max_length=20,
+        choices=WorkerType.choices
+    )
+    complaint_types = models.ManyToManyField(
+        ComplaintType,
+        related_name='workers'
+    )
+    shift = models.CharField(max_length=50)
     is_available = models.BooleanField(default=True)
     
+    class Meta:
+        verbose_name = 'Worker Profile'
+    
     def __str__(self):
-        return f"{self.user.get_full_name()} - {self.get_worker_type_display()}"
+        return f"{self.get_worker_type_display()}: {self.user.get_full_name()}"
 
 class Complaint(models.Model):
-    STATUS_CHOICES = [
-        ('pending', 'Pending'),
-        ('assigned', 'Assigned'),
-        ('resolved', 'Resolved')
-    ]
+    """Model for tracking complaints"""
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        ASSIGNED = 'assigned', 'Assigned'
+        IN_PROGRESS = 'in_progress', 'In Progress'
+        RESOLVED = 'resolved', 'Resolved'
+        REJECTED = 'rejected', 'Rejected'
     
     student = models.ForeignKey(
         CustomUser,
         on_delete=models.CASCADE,
-        limit_choices_to={'user_type': 'student'},
-        related_name='filed_complaints'  # Add this line
+        limit_choices_to={'user_type': CustomUser.UserType.STUDENT},
+        related_name='filed_complaints'
     )
-    complaint_type = models.ForeignKey(ComplaintType, on_delete=models.CASCADE)
+    complaint_type = models.ForeignKey(
+        ComplaintType,
+        on_delete=models.PROTECT,
+        related_name='complaints'
+    )
+    title = models.CharField(max_length=200)
     description = models.TextField()
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    assigned_worker = models.ForeignKey(
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING
+    )
+    assigned_to = models.ForeignKey(
         CustomUser,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        limit_choices_to={'user_type': 'worker', 'worker_profile__complaint_types': models.F('complaint_type')},
-        related_name='assigned_complaints'  # Add this line
+        limit_choices_to={'user_type': CustomUser.UserType.WORKER},
+        related_name='assigned_complaints'
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    resolution_details = models.TextField(blank=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Complaint'
+    
+    def __str__(self):
+        return f"{self.title} ({self.get_status_display()})"
+    
+    @property
+    def is_open(self):
+        return self.status not in [self.Status.RESOLVED, self.Status.REJECTED]
