@@ -35,7 +35,7 @@ function LoginPage() {
       });
 
       // Store tokens and user data
-      const storage = rememberMe ? localStorage : sessionStorage;
+      const storage =  localStorage ;
       storage.setItem('access_token', response.data.access);
       storage.setItem('refresh_token', response.data.refresh);
       storage.setItem('user_data', JSON.stringify({
@@ -71,7 +71,7 @@ function LoginPage() {
   // Token refresh function
   const refreshToken = async () => {
     try {
-      const refreshToken = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
+      const refreshToken = localStorage.getItem('refresh_token');
       if (!refreshToken) return;
 
       const response = await axios.post('auth/token/refresh/', {

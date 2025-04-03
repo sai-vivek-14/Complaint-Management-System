@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { LogOut, Upload, Search, FileText, X } from 'lucide-react';
 import axios from 'axios';
+import Navbar from './Components/Navbar';
 
 interface Complaint {
   id: string;
@@ -93,19 +94,7 @@ function SDash() {
     <div className="min-h-screen bg-[#1a1d21] text-gray-100">
       {/* Header (unchanged) */}
       <header className="border-b border-gray-700 p-4">
-        <div className="container mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold">Insta Solve</h1>
-            <p className="text-sm text-gray-400">Hostel Complaint Management System</p>
-          </div>
-          <nav className="flex items-center gap-6">
-            <button className="px-6 py-2 bg-[#ff7849] rounded-full text-white">Dashboard</button>
-            <button className="text-gray-400 hover:text-white">Profile</button>
-            <button className="flex items-center gap-2 text-red-500 hover:text-red-400" onClick={() => alert('Logged out')}>
-              <LogOut size={18} /> Logout
-            </button>
-          </nav>
-        </div>
+        <Navbar />
       </header>
 
       <main className="container mx-auto p-8">

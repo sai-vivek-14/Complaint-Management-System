@@ -8,7 +8,9 @@ from .views import (
     CustomTokenObtainPairView,
     PasswordResetRequestView,
     PasswordResetConfirmView,
-    ComplaintViewSet
+    ComplaintViewSet,
+    CurrentUserView,
+    
 )
 
 router = DefaultRouter()
@@ -23,4 +25,5 @@ urlpatterns = [
     path('api/auth/password_reset/', PasswordResetRequestView.as_view(), name='password_reset'),
     path('api/auth/password_reset/confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     path('api/', include(router.urls)),
+    path('api/current_user/', CurrentUserView.as_view(), name='current_user'),
 ]

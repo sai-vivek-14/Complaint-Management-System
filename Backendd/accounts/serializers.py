@@ -1,4 +1,6 @@
 from rest_framework import serializers
+
+from django.contrib.auth.models import User
 from django.contrib.auth import get_user_model
 from .models import Hostel, Room, StudentProfile, WorkerProfile, Complaint, ComplaintType
 from django.contrib.auth import authenticate
@@ -26,17 +28,37 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             return data
         raise serializers.ValidationError("Unable to log in with provided credentials.")
 
+from rest_framework import serializers
+from django.contrib.auth.models import User
+
+from rest_framework import serializers
+from django.contrib.auth import get_user_model
+User = get_user_model()
+
 class UserSerializer(serializers.ModelSerializer):
-    student_profile = serializers.PrimaryKeyRelatedField(read_only=True)
-    worker_profile = serializers.PrimaryKeyRelatedField(read_only=True)
-    
+    Roll_number = serializers.SerializerMethodField()
+    Phone_number = serializers.SerializerMethodField()
+    profile_photo = serializers.SerializerMethodField()
+    user_type = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'roll_number', 'first_name', 'last_name', 
-                 'user_type', 'hostel', 'phone_number', 'profile_photo', 
-                 'student_profile', 'worker_profile']
-        read_only_fields = ['id', 'email']
+        fields = ['id', 'first_name', 'last_name', 'email', 
+                'Roll_number', 'Phone_number', 'profile_photo', 'user_type']
 
+    def get_Roll_number(self, obj):
+        return getattr(obj.userprofile, 'roll_number', None)
+
+    def get_Phone_number(self, obj):
+        return getattr(obj.userprofile, 'phone_number', None)
+
+    def get_user_type(self, obj):
+        return getattr(obj.userprofile, 'user_type', None)
+
+    def get_profile_photo(self, obj):
+        if hasattr(obj, 'userprofile') and obj.userprofile.profile_photo:
+            return self.context['request'].build_absolute_uri(obj.userprofile.profile_photo.url)
+        return None
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, validators=[validate_password])
     confirm_password = serializers.CharField(write_only=True)

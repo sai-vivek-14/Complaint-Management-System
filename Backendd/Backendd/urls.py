@@ -11,12 +11,13 @@ from rest_framework_simplejwt.views import (
 
 
 
+
 urlpatterns = [
     path('admin/', admin.site.urls),
 
     path('api/', include('ssdash.urls')),
-       path('accounts/', include('accounts.urls'))  # Include the URLs from the ssdash app
-    ]
+       path('accounts/', include('accounts.urls')),  # Include the URLs from the ssdash app
+]
 
 # Add static URL mapping for development
 if settings.DEBUG:
