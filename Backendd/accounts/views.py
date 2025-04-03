@@ -3,6 +3,12 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from .models import Hostel, Room, StudentProfile, WorkerProfile, Complaint, ComplaintType
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from .serializers import UserSerializer
+
+
 from .serializers import (
     UserSerializer, 
     UserRegistrationSerializer,
@@ -26,6 +32,12 @@ from django.template.loader import render_to_string
 
 # Get the custom user model
 User = get_user_model()
+class CurrentUserView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        serializer = UserSerializer(request.user)
+        return Response(serializer.data)
 
 class IsWardenOrAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
