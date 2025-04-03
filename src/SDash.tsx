@@ -109,15 +109,26 @@ function SDash() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Complaint Name</label>
-              <input
-                type="text"
-                value={complaintName}
-                onChange={(e) => setComplaintName(e.target.value)}
-                className="w-full bg-[#2a2f35] border border-gray-700 rounded-lg p-2 focus:outline-none focus:border-[#ff7849]"
-                required
-              />
-            </div>
+  <label className="block text-sm text-gray-400 mb-2">Complaint Name</label>
+  <input
+    type="text"
+    value={complaintName}
+    onChange={(e) => {
+      const value = e.target.value;
+      // Only allow letters and spaces, and limit to 45 characters
+      if (/^[a-zA-Z\s]*$/.test(value) && value.length <= 45) {
+        setComplaintName(value);
+      }
+    }}
+    className="w-full bg-[#2a2f35] border border-gray-700 rounded-lg p-2 focus:outline-none focus:border-[#ff7849]"
+    required
+    maxLength={45}
+    placeholder="Enter complaint name (letters only)"
+  />
+  {complaintName.length >= 45 && (
+    <p className="text-xs text-red-500 mt-1">Maximum 45 characters reached</p>
+  )}
+</div>
 
             <div>
               <label className="block text-sm text-gray-400 mb-2">Category</label>
@@ -137,15 +148,24 @@ function SDash() {
             </div>
 
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Room Number</label>
-              <input
-                type="text"
-                value={roomNumber}
-                onChange={(e) => setRoomNumber(e.target.value)}
-                className="w-full bg-[#2a2f35] border border-gray-700 rounded-lg p-2 focus:outline-none focus:border-[#ff7849]"
-                required
-              />
-            </div>
+  <label className="block text-sm text-gray-400 mb-2">Room Number</label>
+  <input
+    type="text"
+    value={roomNumber}
+    onChange={(e) => {
+      const value = e.target.value.toUpperCase();
+      // More permissive pattern that still guides toward correct format
+      if (value === "" || /^[A-D][A-D]?[0-9]{0,3}$/.test(value)) {
+        setRoomNumber(value);
+      }
+    }}
+    className="w-full bg-[#2a2f35] border border-gray-700 rounded-lg p-2 focus:outline-none focus:border-[#ff7849]"
+    required
+    placeholder="e.g., AA101, BB202"
+    pattern="[A-D][A-D](1[0-9][0-9]|2[0-3][0-9]|4[0-3][0-9])"
+    title="Please enter a valid room number (e.g., AA101, BB230)"
+  />
+</div>
 
             <div>
               <label className="block text-sm text-gray-400 mb-2">Place/Location</label>
