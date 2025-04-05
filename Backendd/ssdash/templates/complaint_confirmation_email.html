@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Complaint Confirmation</title>
+</head>
+<body>
+    <p>Dear {{ user.get_full_name|default:user.username }},</p>
+    
+    <p>Your complaint has been successfully registered with the following details:</p>
+    
+    <ul>
+        <li><strong>Complaint ID:</strong> {{ complaint.id }}</li>
+        <li><strong>Subject:</strong> {{ complaint.complaint_name }}</li>
+        <li><strong>Category:</strong> {{ complaint.get_complaint_category_display }}</li>
+        <li><strong>Room No:</strong> {{ complaint.room_number }}</li>
+        <li><strong>Status:</strong> {{ complaint.status }}</li>
+        <li><strong>Date:</strong> {{ complaint.created_at|date:"F j, Y H:i" }}</li>
+    </ul>
+    
+    <p>We will process your complaint and update you on the status.</p>
+    
+    <p>If you didn't raise this complaint, please contact us immediately at 
+    <a href="mailto:{{ support_email }}">{{ support_email }}</a>.</p>
+    
+    <p>Thank you,<br>
+    Hostel Management System</p>
+</body>
+</html>

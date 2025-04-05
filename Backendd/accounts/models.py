@@ -8,29 +8,28 @@ from django.dispatch import receiver
 from django.db.models.signals import post_save
 
 class UserProfile(models.Model):
-    USER_TYPES = (
-        ('student', 'Student'),
-        ('warden', 'warden'),
-        ('admin', 'Admin'),
-    )
-    
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     roll_number = models.CharField(max_length=20, blank=True)
     phone_number = models.CharField(max_length=15, blank=True)
     profile_photo = models.ImageField(upload_to='profile_photos/', blank=True, null=True)
-    user_type = models.CharField(max_length=10, choices=USER_TYPES, default='student')
 
+    @property
+    def user_type(self):
+        return self.user.user_type  # Accessing from the CustomUser model
+
+    def __str__(self):
+        return f'{self.user.username} Profile'
+
+# Automatically create or update UserProfile when a User is created/updated
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
-def create_user_profile(sender, instance, created, **kwargs):
+def create_or_update_user_profile(sender, instance, created, **kwargs):
     if created:
         UserProfile.objects.get_or_create(user=instance)
-
-@receiver(post_save, sender=settings.AUTH_USER_MODEL)
-def save_user_profile(sender, instance, **kwargs):
-    if hasattr(instance, 'userprofile'):
-        instance.userprofile.save()
     else:
-        UserProfile.objects.get_or_create(user=instance)
+        if hasattr(instance, 'userprofile'):
+            instance.userprofile.save()
+        else:
+            UserProfile.objects.get_or_create(user=instance)
 class ComplaintType(models.Model):
     name = models.CharField(max_length=50)  # e.g., "Plumbing", "Electrical"
     description = models.TextField(blank=True)

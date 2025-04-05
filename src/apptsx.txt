@@ -1,18 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from './auth/AuthContext';
-
-export interface UserType {
-  token: string;
-  refreshToken: string;
-  userData: {
-    username: string;
-    user_type: string;
-    email: string;
-    roll_number: string;
-  };
-  
-}
+import { useAuth } from './AuthContext';
 
 function LoginPage() {
   const [loginType, setLoginType] = useState<'student' | 'staff'>('student');
@@ -42,26 +30,22 @@ function LoginPage() {
       const data = await response.json();
 
       if (response.ok) {
-        if (!data.access || !data.refresh || !data.user_type) {
-          throw new Error('Invalid response from server');
-        }
-
-        // Call login with the correct parameters
-        login(data.access, data.refresh, {
-          username: data.username || identifier,
-          user_type: data.user_type,
-          email: data.email || '',
-          roll_number: data.roll_number || ''
+        login({
+          token: data.access,
+          refreshToken: data.refresh,
+          userData: {
+            username: data.username,
+            user_type: data.user_type,
+            email: data.email,
+            roll_number: data.roll_number
+          }
         });
 
-        // Handle remember me functionality
-        if (rememberMe) {
-          localStorage.setItem('rememberedUser', identifier);
-        } else {
-          localStorage.removeItem('rememberedUser');
-        }
+        const storage = rememberMe ? localStorage : sessionStorage;
+        storage.setItem('access_token', data.access);
+        storage.setItem('refresh_token', data.refresh);
+        storage.setItem('user_data', JSON.stringify(data));
 
-        // Redirect based on user type
         switch (data.user_type) {
           case 'student': navigate('/SDash'); break;
           case 'warden': navigate('/Wmain'); break;
@@ -70,11 +54,11 @@ function LoginPage() {
           default: navigate('/');
         }
       } else {
-        setError(data.detail || data.message || 'Login failed. Please check your credentials.');
+        setError(data.detail || 'Login failed. Please check your credentials.');
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError(err instanceof Error ? err.message : 'Network error. Please try again.');
+      setError('Network error. Please try again.');
     } finally {
       setIsLoading(false);
     }

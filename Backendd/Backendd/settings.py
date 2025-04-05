@@ -29,8 +29,7 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'hostcomplaints@gmail.com'
 EMAIL_HOST_PASSWORD = "yuca rzga zyto obhx"  # Ensure it's properly loaded
 
-if not EMAIL_HOST_PASSWORD:
-    raise ValueError("EMAIL_HOST_PASSWORD is not set. Please configure it in a .env file.")
+
 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 EMAIL_TIMEOUT = 10  # Increase timeout for reliability
@@ -39,6 +38,9 @@ EMAIL_TIMEOUT = 10  # Increase timeout for reliability
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': True,
+    'AUTH_HEADER_TYPES': ('Bearer',),  # ← Must match "Bearer" in frontend
+    
 }
 
 # Installed apps
@@ -55,6 +57,7 @@ INSTALLED_APPS = [
     'ssdash',
     'accounts',
     'rest_framework_simplejwt',
+    'rest_framework.authtoken',
 
      
 ]
@@ -79,7 +82,7 @@ ROOT_URLCONF = 'Backendd.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'], 
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -130,11 +133,17 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
+         'rest_framework.authentication.TokenAuthentication',
     ),
 }
 
 # CORS settings
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_HEADERS = [
+    'authorization',  # ← Lowercase required
+    'content-type',
+]
+CORS_EXPOSE_HEADERS = ['Authorization'] 
 
 # Internationalization settings
 LANGUAGE_CODE = 'en-us'
@@ -156,7 +165,7 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 # Frontend and backend URLs
-FRONTEND_URL = 'http://localhost:5174'
+FRONTEND_URL = 'http://localhost:5173'
 BACKEND_DOMAIN = 'http://localhost:8000'
 
 # Security settings (Modify for production)

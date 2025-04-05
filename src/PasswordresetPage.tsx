@@ -32,6 +32,7 @@ const PasswordResetPage: React.FC = () => {
           },
         }
       );
+      console.log("UID:", uid, "Token:", token);
       setSuccess('Password reset email sent. Please check your email inbox.');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to send reset email');
@@ -68,7 +69,7 @@ const PasswordResetPage: React.FC = () => {
         }
       );
       setSuccess('Password reset successfully! You can now login with your new password.');
-      setTimeout(() => navigate('/login'), 3000);
+      setTimeout(() => navigate('/'), 3000);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to reset password');
     } finally {
@@ -204,7 +205,7 @@ const PasswordResetPage: React.FC = () => {
                 <div className="text-center mt-4">
                   <button
                     type="button"
-                    onClick={() => navigate('/login')}
+                    onClick={() => navigate('/')}
                     className="text-orange-300 hover:text-orange-200 text-sm"
                   >
                     Back to Login

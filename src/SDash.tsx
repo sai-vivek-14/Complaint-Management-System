@@ -34,6 +34,43 @@ function SDash() {
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   const [showModal, setShowModal] = useState(false);
 
+  // Create axios instance with interceptors
+  const api = axios.create({
+    baseURL: 'http://localhost:8000',
+  });
+
+  // Add request interceptor to include token
+  api.interceptors.request.use(config => {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  });
+
+  // Add response interceptor to handle 401 errors
+  api.interceptors.response.use(
+    response => response,
+    async error => {
+      const originalRequest = error.config;
+      if (error.response?.status === 401 && !originalRequest._retry) {
+        originalRequest._retry = true;
+        try {
+          const refreshToken = localStorage.getItem('refresh_token');
+          const { data } = await axios.post('http://localhost:8000/api/token/refresh/', { refresh: refreshToken });
+          localStorage.setItem('access_token', data.access);
+          api.defaults.headers.common['Authorization'] = `Bearer ${data.access}`;
+          return api(originalRequest);
+        } catch (refreshError) {
+          // Redirect to login if refresh fails
+          window.location.href = '/';
+          return Promise.reject(refreshError);
+        }
+      }
+      return Promise.reject(error);
+    }
+  );
+
   // Fetch complaints on component mount
   useEffect(() => {
     fetchComplaints();
@@ -41,8 +78,9 @@ function SDash() {
 
   const fetchComplaints = async () => {
     setIsLoading(true);
+    setError('');
     try {
-      const response = await axios.get('http://localhost:8000/api/complaints/');
+      const response = await api.get('http://127.0.0.1:8000/api/complaints/');
       setComplaints(response.data);
     } catch (error) {
       setError('Failed to fetch complaints');
@@ -55,6 +93,7 @@ function SDash() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError('');
 
     const formData = new FormData();
     formData.append('complaint_name', complaintName);
@@ -65,16 +104,19 @@ function SDash() {
     if (attachment) formData.append('attachment', attachment);
 
     try {
-      await axios.post('http://localhost:8000/api/complaints/', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+      await api.post('/api/complaints/', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        }
       });
-      // Reset form and refresh list
+      // Reset form
       setComplaintName('');
       setComplaintCategory('default');
       setRoomNumber('');
       setDescription('');
       setPlace('');
       setAttachment(null);
+      // Refresh list
       await fetchComplaints();
     } catch (error) {
       setError('Submission failed. Please try again.');
@@ -92,13 +134,12 @@ function SDash() {
 
   return (
     <div className="min-h-screen bg-[#1a1d21] text-gray-100">
-      {/* Header (unchanged) */}
       <header className="border-b border-gray-700 p-4">
         <Navbar />
       </header>
 
       <main className="container mx-auto p-8">
-        {/* COMPLAINT FORM SECTION - FULLY INTACT */}
+        {/* COMPLAINT FORM SECTION */}
         <form onSubmit={handleSubmit} className="bg-[#22262b] rounded-lg p-6 mb-8">
           <div className="flex items-center gap-2 mb-6">
             <FileText size={20} />
@@ -109,26 +150,25 @@ function SDash() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
-  <label className="block text-sm text-gray-400 mb-2">Complaint Name</label>
-  <input
-    type="text"
-    value={complaintName}
-    onChange={(e) => {
-      const value = e.target.value;
-      // Only allow letters and spaces, and limit to 45 characters
-      if (/^[a-zA-Z\s]*$/.test(value) && value.length <= 45) {
-        setComplaintName(value);
-      }
-    }}
-    className="w-full bg-[#2a2f35] border border-gray-700 rounded-lg p-2 focus:outline-none focus:border-[#ff7849]"
-    required
-    maxLength={45}
-    placeholder="Enter complaint name (letters only)"
-  />
-  {complaintName.length >= 45 && (
-    <p className="text-xs text-red-500 mt-1">Maximum 45 characters reached</p>
-  )}
-</div>
+              <label className="block text-sm text-gray-400 mb-2">Complaint Name</label>
+              <input
+                type="text"
+                value={complaintName}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (/^[a-zA-Z\s]*$/.test(value) && value.length <= 45) {
+                    setComplaintName(value);
+                  }
+                }}
+                className="w-full bg-[#2a2f35] border border-gray-700 rounded-lg p-2 focus:outline-none focus:border-[#ff7849]"
+                required
+                maxLength={45}
+                placeholder="Enter complaint name (letters only)"
+              />
+              {complaintName.length >= 45 && (
+                <p className="text-xs text-red-500 mt-1">Maximum 45 characters reached</p>
+              )}
+            </div>
 
             <div>
               <label className="block text-sm text-gray-400 mb-2">Category</label>
@@ -148,24 +188,21 @@ function SDash() {
             </div>
 
             <div>
-  <label className="block text-sm text-gray-400 mb-2">Room Number</label>
-  <input
-    type="text"
-    value={roomNumber}
-    onChange={(e) => {
-      const value = e.target.value.toUpperCase();
-      // More permissive pattern that still guides toward correct format
-      if (value === "" || /^[A-D][A-D]?[0-9]{0,3}$/.test(value)) {
-        setRoomNumber(value);
-      }
-    }}
-    className="w-full bg-[#2a2f35] border border-gray-700 rounded-lg p-2 focus:outline-none focus:border-[#ff7849]"
-    required
-    placeholder="e.g., AA101, BB202"
-    pattern="[A-D][A-D](1[0-9][0-9]|2[0-3][0-9]|4[0-3][0-9])"
-    title="Please enter a valid room number (e.g., AA101, BB230)"
-  />
-</div>
+              <label className="block text-sm text-gray-400 mb-2">Room Number</label>
+              <input
+                type="text"
+                value={roomNumber}
+                onChange={(e) => {
+                  const value = e.target.value.toUpperCase();
+                  if (value === "" || /^[A-D][A-D]?[0-9]{0,3}$/.test(value)) {
+                    setRoomNumber(value);
+                  }
+                }}
+                className="w-full bg-[#2a2f35] border border-gray-700 rounded-lg p-2 focus:outline-none focus:border-[#ff7849]"
+                required
+                placeholder="e.g., AA101, BB202"
+              />
+            </div>
 
             <div>
               <label className="block text-sm text-gray-400 mb-2">Place/Location</label>
@@ -207,8 +244,6 @@ function SDash() {
                 {isLoading ? 'Submitting...' : 'Submit'}
               </button>
             </div>
-
-            
           </div>
         </form>
 
@@ -344,26 +379,28 @@ function SDash() {
 
               {selectedComplaint.attachment && (
                 <div>
-                  <p className="text-sm text-gray-400">Attachment</p>
-                  <div className="bg-[#2a2f35] p-4 rounded-lg mt-1">
-                    {selectedComplaint.attachment.match(/\.(jpg|jpeg|png)$/) ? (
-                      <img 
-                        src={`http://127.0.0.1:8000/${selectedComplaint.attachment}`} 
-                        alt="Attachment" 
-                        className="max-w-full h-auto rounded"
-                      />
-                    ) : (
-                      <a 
-                        href={`http://localhost:8000/${selectedComplaint.attachment}`} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-[#ff7849] hover:underline"
-                      >
-                        Download Attachment
-                      </a>
-                    )}
-                  </div>
+                <p className="text-sm text-gray-400">Attachment</p>
+                <div className="bg-[#2a2f35] p-4 rounded-lg mt-1">
+                  {selectedComplaint.attachment?.match(/\.(jpg|jpeg|png)$/i) ? (
+                   <img 
+                   src="https://jamesandco.in/wp-content/uploads/2024/09/41yY6pTdNGL._SL1443.jpg"
+                   alt="Attachment"
+                   className="max-w-full h-auto rounded"
+                 />
+                 
+                  ) : (
+                    <a 
+                      href={`http://localhost:8000${selectedComplaint.attachment}`} 
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#ff7849] hover:underline"
+                    >
+                      Download Attachment
+                    </a>
+                  )}
                 </div>
+              </div>
+              
               )}
             </div>
 

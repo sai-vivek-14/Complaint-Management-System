@@ -31,7 +31,37 @@ from django.utils.encoding import force_bytes
 from django.template.loader import render_to_string
 
 # Get the custom user model
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.contrib.auth import authenticate
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.permissions import AllowAny
 User = get_user_model()
+class LoginAPI(APIView):
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
+        
+        user = authenticate(username=username, password=password)
+        
+        if user:
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+                'username': user.username,
+                'user_type': user.user_type  # Assuming your CustomUser has user_type field
+            })
+        else:
+            return Response(
+                {'error': 'Invalid credentials'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
 class CurrentUserView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -184,17 +214,15 @@ class PasswordResetRequestView(APIView):
         token = default_token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         
-        # Build reset URL
-        reset_url = request.build_absolute_uri(
-            reverse('password_reset_confirm') + f'?uid={uid}&token={token}'
-        )
+        # Build reset URL with query parameters
+        reset_url = f"http://localhost:5173/reset?uid={uid}&token={token}"
         
         # Send email
         subject = 'Password Reset Request'
-        message = render_to_string('password_reset_email.html', {
-            'user': user,
-            'reset_url': reset_url,
-        })
+        message = render_to_string('accounts/password_reset_email.html', {
+    'user': user,
+    'reset_url': reset_url,
+})
         
         send_mail(
             subject,

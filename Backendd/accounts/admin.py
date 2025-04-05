@@ -6,6 +6,7 @@ from .models import (CustomUser, Hostel, Room,
                     StudentProfile, WorkerProfile,
                     ComplaintType, Complaint)
 
+
 class ComplaintTypeAdmin(admin.ModelAdmin):
     list_display = ('name', 'description')
     search_fields = ('name',)

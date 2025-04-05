@@ -71,7 +71,7 @@ const ProfileCard: React.FC = () => {
                 {/* Profile Details Section */}
                 <div className="p-8">
                     <div className="uppercase tracking-wide text-sm text-blue-500 font-semibold">
-                        {profile.user_type}
+                        {/* {profile.user_type} */}
                     </div>
                     <h1 className="block mt-1 text-2xl leading-tight font-medium text-black">
                         {profile.first_name} {profile.last_name}

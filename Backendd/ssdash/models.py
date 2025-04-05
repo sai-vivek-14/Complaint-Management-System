@@ -1,4 +1,6 @@
 from django.db import models
+from django.contrib.auth.models import User
+
 
 class Complaint(models.Model):
     # Status choices for the complaint
@@ -19,6 +21,8 @@ class Complaint(models.Model):
 
     # Fields for the Complaint model
     objects = models.Manager() # The default manager
+    user = models.ForeignKey('accounts.CustomUser', on_delete=models.CASCADE, )  # Link to user
+    roll_number = models.CharField(max_length=20, blank=False)
     complaint_name = models.CharField(max_length=255)  # Name of the complaint
     description = models.TextField()  # Detailed description of the complaint
     room_number = models.CharField(max_length=50)  # Room number where the complaint is raised
