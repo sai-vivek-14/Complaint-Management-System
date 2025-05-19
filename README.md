@@ -1,7 +1,7 @@
 # INSTASOLVE: Full Stack Web Application
 
 This is a full stack web application built using **Django (Backend)** and **React (Frontend)**. It uses **REST APIs**, **Axios**, **Tailwind CSS**, and **Django authentication**.
-This project is a Hostel Management System built using Django and React. The main idea of our project is that there are four types of logins: student, warden, hostel, and django super user. Each hostel has its own login.
+This project is a Hostel Complaint System built using Django and React. The main idea of our project is that there are four types of logins: student, warden, hostel, and django super user. Each hostel has its own login.
 
 Students can raise issues or complaints through their login. These complaints will be visible in the warden's dashboard. The warden can either accept or reject the complaint. Once a decision is made, the status will be updated on the student's side, and email notifications will be sent to all relevant users.
 
