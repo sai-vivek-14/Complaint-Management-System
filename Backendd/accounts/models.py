@@ -166,6 +166,7 @@ class WorkerProfile(models.Model):
     def __str__(self):
         return f"{self.user.get_full_name()} - {self.get_worker_type_display()}"
 
+
 class Complaint(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),

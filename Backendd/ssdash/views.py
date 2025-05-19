@@ -14,6 +14,9 @@ from django.template.loader import render_to_string
 from django.conf import settings
 from django.utils.html import strip_tags
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.views import APIView
+
+from django.db.models import Count
 
 class ComplaintViewSet(viewsets.ModelViewSet):
     queryset = Complaint.objects.all().order_by('-created_at')
@@ -71,3 +74,14 @@ def get_complaint_categories(request):
         categories = [category[0] for category in Complaint.CATEGORY_CHOICES]
         return JsonResponse({'categories': categories})
     return JsonResponse({'error': 'Invalid request method'}, status=400)
+class ComplaintCountPerStudentView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        complaint_counts = (
+            Complaint.objects
+            .values('user__roll_number')
+            .annotate(complaint_count=Count('id'))
+            .order_by('-complaint_count')
+        )
+        return Response(complaint_counts)

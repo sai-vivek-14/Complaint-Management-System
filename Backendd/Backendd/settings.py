@@ -58,6 +58,10 @@ INSTALLED_APPS = [
     'accounts',
     'rest_framework_simplejwt',
     'rest_framework.authtoken',
+    'warden',
+    'hst',
+
+
 
      
 ]

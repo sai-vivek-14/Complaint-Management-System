@@ -1,9 +1,9 @@
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 
 const data = [
-  { name: 'Solved', value: 45 },
-  { name: 'Unsolved', value: 30 },
-  { name: 'Rejected', value: 25 },
+  { name: 'Pending', value: 60 },
+  { name: 'is_proress', value: 40 },
+  { name: 'Rejected', value: 0},
 ];
 
 const COLORS = ['#22C55E', '#EC4899', '#EF4444'];

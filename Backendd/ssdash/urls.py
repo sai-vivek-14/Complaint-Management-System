@@ -1,6 +1,8 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
+
+from ssdash.views import ComplaintViewSet, ComplaintCountPerStudentView
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -12,6 +14,7 @@ router.register(r'complaints', views.ComplaintViewSet)  # Register the Complaint
 urlpatterns = [
     path('', include(router.urls)),  # Include the router's URLs
     path('categories/', views.get_complaint_categories, name='complaint-categories'),
+    path('complaints-per-student/', ComplaintCountPerStudentView.as_view(), name='complaints-per-student'),
       # Custom endpoint for categories
 ]
 

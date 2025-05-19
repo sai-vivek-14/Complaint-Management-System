@@ -13,7 +13,7 @@ function HDash() {
 
   useEffect(() => {
     // Fetch data from an API
-    fetch('/api/dashboard-stats')
+    fetch('http://127.0.0.1:8000/api/hostel/dashboard-stats/')
       .then((response) => response.json())
       .then((data) => {
         setStats({
@@ -38,11 +38,7 @@ function HDash() {
             value={stats.totalComplaints.toString()}
             subtitle="Complaints were registered"
           />
-          <StatCard 
-            title="ACTIVE COMPLAINTS"
-            value={stats.activeComplaints.toString()}
-            subtitle="Currently being processed"
-          />
+          
           <StatCard 
             title="RESOLVED RATE"
             value={`${stats.resolvedRate}%`}

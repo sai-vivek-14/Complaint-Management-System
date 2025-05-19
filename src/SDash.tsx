@@ -205,24 +205,32 @@ function SDash() {
             </div>
 
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Place/Location</label>
-              <input
-                type="text"
-                value={place}
-                onChange={(e) => setPlace(e.target.value)}
-                className="w-full bg-[#2a2f35] border border-gray-700 rounded-lg p-2 focus:outline-none focus:border-[#ff7849]"
-                required
-              />
-            </div>
+  <label className="block text-sm text-gray-400 mb-2">Place/Location</label>
+  <input
+    type="text"
+    value={place}
+    onChange={(e) => {
+      const sanitized = e.target.value.replace(/[^a-zA-Z0-9 ]/g, '');
+      setPlace(sanitized.slice(0, 30));
+    }}
+    className="w-full bg-[#2a2f35] border border-gray-700 rounded-lg p-2 focus:outline-none focus:border-[#ff7849]"
+    required
+  />
+</div>
             <div className="md:col-span-2">
-              <label className="block text-sm text-gray-400 mb-2">Description</label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full bg-[#2a2f35] border border-gray-700 rounded-lg p-2 h-32 focus:outline-none focus:border-[#ff7849]"
-                required
-              />
-            </div>
+  <label className="block text-sm text-gray-400 mb-2">Description</label>
+  <textarea
+    value={description}
+    onChange={(e) => {
+      const sanitized = e.target.value.replace(/[^a-zA-Z0-9 .,!?-]/g, '');
+      const words = sanitized.split(/\s+/);
+      const limited = words.slice(0, 250).join(' ');
+      setDescription(limited);
+    }}
+    className="w-full bg-[#2a2f35] border border-gray-700 rounded-lg p-2 h-32 focus:outline-none focus:border-[#ff7849]"
+    required
+  />
+</div>
 
             <div className="flex flex-col items-center justify-center">
               <label className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center w-full cursor-pointer">
@@ -383,7 +391,7 @@ function SDash() {
                 <div className="bg-[#2a2f35] p-4 rounded-lg mt-1">
                   {selectedComplaint.attachment?.match(/\.(jpg|jpeg|png)$/i) ? (
                    <img 
-                   src="https://jamesandco.in/wp-content/uploads/2024/09/41yY6pTdNGL._SL1443.jpg"
+                   src={`http://127.0.0.1:8000${selectedComplaint.attachment}`}
                    alt="Attachment"
                    className="max-w-full h-auto rounded"
                  />

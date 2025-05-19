@@ -5,12 +5,14 @@ type UserData = {
   user_type: 'student' | 'warden' | 'worker' | 'hostel_staff';
   email: string;
   roll_number: string;
+
 };
 
 type AuthContextType = {
   user: UserData | null;
   token: string | null;
   refreshToken: string | null;
+  
   login: (token: string, refreshToken: string, userData: UserData) => void;
   logout: () => void;
 };

@@ -13,11 +13,17 @@ from rest_framework_simplejwt.views import (
 
 
 
+
 urlpatterns = [
     path('admin/', admin.site.urls),
 
     path('api/', include('ssdash.urls')),
     path('accounts/', include('accounts.urls')),  
+    # project/urls.py
+    path('api/warden/', include('warden.urls')),
+    path('api/hostel/', include('hst.urls')),
+    
+
 ]
 
 # Add static URL mapping for development
