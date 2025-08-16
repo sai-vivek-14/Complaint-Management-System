@@ -4,8 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
 from accounts.models import Hostel , CustomUser
-from ssdash.models import Complaint
-from ssdash.serializers import ComplaintSerializer
+from ssdash.models import Complaint  # Ensure Complaint isfrom ssdash.serializers import ComplaintSerializer
 from rest_framework.permissions import IsAuthenticated
 
 
@@ -59,6 +58,22 @@ class ApproveComplaint(APIView):
                 return Response({"error": "Complaint is not in a pending state."}, status=status.HTTP_400_BAD_REQUEST)
         except Complaint.DoesNotExist:
             return Response({"error": "Complaint not found."}, status=status.HTTP_404_NOT_FOUND)
-        complaint.save()
 
         return Response({"detail": "Complaint approved and set to In Progress."}, status=status.HTTP_200_OK)
+class RejectComplaint(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):  # ✅ Accept 'pk' here
+        try:
+            complaint = Complaint.objects.get(pk=pk)
+            if complaint.status.lower() == "pending":
+                complaint.status = "Rejected"
+                complaint.save()
+                return Response({"message": "Complaint rejected successfully."}, status=status.HTTP_200_OK)
+            else:
+                return Response({"error": "Complaint is not in a pending state."}, status=status.HTTP_400_BAD_REQUEST)
+        except Complaint.DoesNotExist:
+            return Response({"error": "Complaint not found."}, status=status.HTTP_404_NOT_FOUND)
+        complaint.save()
+
+        return Response({"detail": "Complaint rejected and status updated."}, status=status.HTTP_200_OK)
