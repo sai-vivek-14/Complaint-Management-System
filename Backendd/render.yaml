@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: django-app
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn your_project_name.wsgi:application
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: Backendd.settings
+      - key: PYTHON_VERSION
+        value: 3.11

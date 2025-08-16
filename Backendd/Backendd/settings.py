@@ -19,7 +19,11 @@ SECRET_KEY = 'django-insecure-94r5d(d=%be(c$9+znt*s%kw^rdhfm_7ui9&fj*5&si3(v#v@_
 DEBUG = True
 
 # Allowed hosts (Modify in production)
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']  
+
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
 
 # Email Configuration (Uses environment variable for password security)
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
