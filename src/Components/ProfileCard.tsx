@@ -19,7 +19,7 @@ const ProfileCard: React.FC = () => {
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-                const response = await axios.get('http://127.0.0.1:8000/accounts/api/current_user/', {
+                const response = await axios.get('${process.env.REACT_APP_BACKEND_URL}/accounts/api/current_user/', {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('access_token')}`
                     }

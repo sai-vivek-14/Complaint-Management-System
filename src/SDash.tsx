@@ -80,7 +80,7 @@ function SDash() {
     setIsLoading(true);
     setError('');
     try {
-      const response = await api.get('http://127.0.0.1:8000/api/complaints/');
+      const response = await api.get('${process.env.REACT_APP_BACKEND_URL}/api/complaints/');
       setComplaints(response.data);
     } catch (error) {
       setError('Failed to fetch complaints');
@@ -391,7 +391,7 @@ function SDash() {
                 <div className="bg-[#2a2f35] p-4 rounded-lg mt-1">
                   {selectedComplaint.attachment?.match(/\.(jpg|jpeg|png)$/i) ? (
                    <img 
-                   src={`http://127.0.0.1:8000${selectedComplaint.attachment}`}
+                   src={`${process.env.REACT_APP_BACKEND_URL}${selectedComplaint.attachment}`}
                    alt="Attachment"
                    className="max-w-full h-auto rounded"
                  />

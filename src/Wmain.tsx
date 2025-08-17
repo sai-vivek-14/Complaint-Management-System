@@ -281,7 +281,7 @@ function Wmain() {
               <strong>Attachment:</strong>{' '}
               {selectedComplaint.attachment ? (
                 <a
-                  href={`http://127.0.0.1:8000${selectedComplaint.attachment}`}
+                  href={`${process.env.REACT_APP_BACKEND_URL}${selectedComplaint.attachment}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-600 underline"

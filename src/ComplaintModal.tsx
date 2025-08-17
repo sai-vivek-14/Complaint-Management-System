@@ -53,13 +53,13 @@ const ComplaintModal: React.FC<ComplaintModalProps> = ({ isOpen, onClose, compla
             {complaint.attachment ? (
               isImage ? (
                 <img
-                  src={`http://127.0.0.1:8000${complaint.attachment}`}
+                  src={`${import.meta.env.VITE_BACKEND_URL}${complaint.attachment}`}
                   alt="Attachment"
                   className="w-full max-h-64 object-contain rounded mt-2"
                 />
               ) : (
                 <a
-                  href={`http://127.0.0.1:8000${complaint.attachment}`}
+                  href={`${import.meta.env.VITE_BACKEND_URL}${complaint.attachment}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-600 hover:underline"

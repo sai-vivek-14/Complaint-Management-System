@@ -13,7 +13,7 @@ function HDash() {
 
   useEffect(() => {
     // Fetch data from an API
-    fetch('http://127.0.0.1:8000/api/hostel/dashboard-stats/')
+    fetch('${process.env.REACT_APP_BACKEND_URL}/api/hostel/dashboard-stats/')
       .then((response) => response.json())
       .then((data) => {
         setStats({
